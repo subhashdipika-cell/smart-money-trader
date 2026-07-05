@@ -637,13 +637,22 @@ def resolve_open_outcomes():
                 s["realized_usd"] = usd
                 changed = True
 
-    # ── Smart expiry rules ───────────────────────────────────────────────────
-    # 1. Hard limit: any OPEN signal > 8 hours → expire
-    # 2. Awaiting entry > 2 hours → stale setup, expire
-    # 3. Price moved > 1.5% away from entry in wrong direction → expire
+    # ── Smart expiry rules (retuned 2026-07-05 from a 1000-bar H1 backtest) ──
+    # The old 2h pending / 8h hard limits were killing the strategies: 88% of
+    # signals EXPIRED unfilled (a 1H limit-retrace setup got only 2 candles to
+    # fill), and filled trades still working toward a 3R target were zeroed at
+    # 8h — slow WINNERS were recorded as EXPIRED while fast SL hits logged as
+    # losses (that asymmetry produced the 1W/28L record). Backtest: extending
+    # the fill window to 24h turned BTC FVG from -3R into +5R, ETH into +13.7R.
+    #   1. Pending (entry never hit): expire after 24 hours.
+    #   2. Early expiry only when price truly ran away (>=1.5% past entry, >4h)
+    #      AND the walk has never seen the entry touched (entry_hit persisted).
+    #   3. Filled trades: resolved by the candle-walk (SL/TP/trail); 48h safety.
 
-    MAX_AGE         = 8 * 60 * 60 * 1000   # 8 hours
-    MAX_PENDING_AGE = 2 * 60 * 60 * 1000   # 2 hours for awaiting entry
+    MAX_AGE         = 48 * 60 * 60 * 1000  # filled-trade safety net
+    MAX_PENDING_AGE = 24 * 60 * 60 * 1000  # awaiting entry
+    RUNAWAY_AGE     = 4 * 60 * 60 * 1000   # min age for the run-away early expiry
+    RUNAWAY_PCT     = 0.015                # price this far past entry = missed
 
     # Get current prices for smart expiry (one fetch per symbol)
     live_prices_for_expiry = {}
@@ -672,21 +681,27 @@ def resolve_open_outcomes():
         symbol      = s.get("symbol", "")
         live_price  = live_prices_for_expiry.get(symbol)
 
-        # Rule 1: Hard 8-hour limit
-        if age_ms > MAX_AGE:
+        # entry_hit is persisted by the candle-walk below the first time it sees
+        # price touch the limit entry — a FILLED trade must never be expired as
+        # "pending" or "missed" (that's how slow winners were being erased).
+        was_filled = bool(s.get("entry_hit"))
+
+        # Rule 1: age limits — 24h for un-filled setups, 48h safety for filled.
+        if age_ms > (MAX_AGE if was_filled else MAX_PENDING_AGE):
             s["outcome"] = "EXPIRED"
             s["points"]  = 0
             changed = True
-            print(f"[Resolver] {symbol} @ {entry} expired (8h limit)")
+            print(f"[Resolver] {symbol} @ {entry} expired "
+                  f"({'48h filled-trade safety' if was_filled else '24h pending limit'})")
             continue
 
-        # Rule 2: Awaiting entry for > 2 hours → stale
-        # Check if entry was never touched by seeing if price is still far away
-        if age_ms > MAX_PENDING_AGE and live_price:
+        # Rule 2: early expiry when the setup truly ran away without filling —
+        # price >=1.5% beyond entry after 4h and the walk never saw a touch.
+        if not was_filled and age_ms > RUNAWAY_AGE and live_price:
             entry_distance_pct = abs(live_price - entry) / entry
             entry_missed = (
-                (sig_type == "BUY"  and live_price > entry * 1.005) or  # price ran up, BUY entry missed
-                (sig_type == "SELL" and live_price < entry * 0.995)      # price dropped, SELL entry missed
+                (sig_type == "BUY"  and live_price > entry * (1 + RUNAWAY_PCT)) or
+                (sig_type == "SELL" and live_price < entry * (1 - RUNAWAY_PCT))
             )
             if entry_missed:
                 s["outcome"] = "EXPIRED"
@@ -834,6 +849,11 @@ def resolve_open_outcomes():
                         break
             else:
                 if entry_hit:
+                    # Persist the fill so the expiry rules treat this as a live
+                    # TRADE (48h safety) and never as a stale pending setup.
+                    if not signal.get("entry_hit"):
+                        signal["entry_hit"] = True
+                        changed = True
                     print(f"[Resolver] {symbol} @ {signal.get('entry')} — in trade, TP/SL not hit yet.")
                 else:
                     print(f"[Resolver] {symbol} @ {signal.get('entry')} — waiting for entry to be touched.")
@@ -1167,7 +1187,7 @@ def check_symbol(symbol, sentiment, state):
                         "sl":      latest["sl"],
                         "tp":      latest["tp"],
                         "rr":      latest["rr"],
-                        "setup":   latest.get("setup", "1H FVG + EMA")
+                        "setup":   latest.get("setup") or latest.get("strategy_tag") or "unlabeled"
                     }
                     label = {"paper": "Paper", "demo": "Demo Live", "live": "Real Live"}.get(mode, mode)
                     result = _mt4_execute(mt4_signal)
@@ -1195,8 +1215,11 @@ def check_symbol(symbol, sentiment, state):
             "tp":            latest["tp"],
             "rr":            latest["rr"],
             "confluences":   latest.get("confluences", []),
-            "setup":         latest.get("setup", "1H FVG + EMA"),
-            "strategy_tag":  latest.get("strategy_tag", "HTF_ICT_Intraday"),
+            # Honest attribution: never default an unlabeled signal to a real
+            # strategy's name — that made "1H FVG + EMA" look like the only
+            # strategy ever firing.
+            "setup":         latest.get("setup") or latest.get("strategy_tag") or "unlabeled",
+            "strategy_tag":  latest.get("strategy_tag") or "unlabeled",
             "outcome":       "OPEN",
             "points":        None,
             "sentiment":     sentiment.get("overall_label", "--"),
