@@ -1,38 +1,6 @@
 {
   "strategies": [
     {
-      "name": "ETH EMA Rider (Trend)",
-      "asset": "ETH",
-      "timeframe": "1h",
-      "direction": "both",
-      "conditions": [
-        {
-          "type": "ema_cross",
-          "fast": 9,
-          "slow": 21
-        },
-        {
-          "type": "price_vs_ma",
-          "period": 200,
-          "ma": "ema"
-        }
-      ],
-      "exit_conditions": [
-        {
-          "type": "ema_cross",
-          "fast": 9,
-          "slow": 21
-        }
-      ],
-      "risk": {
-        "sl_type": "atr",
-        "sl_value": 1.5,
-        "rr_ratio": 2,
-        "use_tp": false
-      },
-      "id": "custom_1781159562192_0"
-    },
-    {
       "name": "Gold MACD Trend RR3",
       "asset": "Gold",
       "timeframe": "1h",
@@ -80,29 +48,6 @@
         "use_tp": true
       },
       "id": "custom_1781159562203_2"
-    },
-    {
-      "name": "Gold London Sweep RR3",
-      "asset": "Gold",
-      "timeframe": "1h",
-      "direction": "both",
-      "conditions": [
-        {
-          "type": "liquidity_sweep"
-        },
-        {
-          "type": "session",
-          "session": "london"
-        }
-      ],
-      "exit_conditions": [],
-      "risk": {
-        "sl_type": "atr",
-        "sl_value": 1.5,
-        "rr_ratio": 3,
-        "use_tp": true
-      },
-      "id": "custom_1781159562208_3"
     },
     {
       "name": "Gold EMA Rider (Trend)",

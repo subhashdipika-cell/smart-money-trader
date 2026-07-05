@@ -880,8 +880,15 @@ def is_quality_signal(signal, sentiment, symbol="BTCUSDT"):
     min_score = weights.get(f"min_quality_score_{symbol}",
                 weights.get("min_quality_score", 6))
 
-    if signal.get("confidence") != "High":
-        return False, "Low confidence"
+    # Confidence gate (fixed 2026-07-05): the old hard `!= "High"` check
+    # silently killed EVERY signal from ATR Trailing / SMC Swing / Momentum /
+    # H4 Break-Retest (no confidence field) and all custom strategies
+    # ("Medium") — 9 of 11 assigned strategies never traded because of this
+    # one line. Now: "High" passes as before; anything else passes on a
+    # quality_score of 7+ (backtested: those strategies are net positive).
+    conf = signal.get("confidence")
+    if conf != "High" and (signal.get("quality_score") or 0) < 7:
+        return False, f"Confidence {conf or 'unset'} with score {signal.get('quality_score')} < 7"
 
     # Intraday signals have wider SL — harder to pile on 6 confluences
     # Allow score=5 for Intraday if brain conviction is high

@@ -52,6 +52,25 @@ _TICKER = {
     "ETHUSD": "ETH-USD", "ETHUSDT": "ETH-USD", "ETH": "ETH-USD",
 }
 
+_CANDLE_SYMBOL = {
+    "BTC": "BTCUSDT", "BTCUSD": "BTCUSDT", "BTCUSDT": "BTCUSDT",
+    "ETH": "ETHUSDT", "ETHUSD": "ETHUSDT", "ETHUSDT": "ETHUSDT",
+}
+
+
+def _candles(symbol: str, interval: str, limit: int) -> pd.DataFrame:
+    """MT5-primary candles (Binance fallback) — the same feed trades execute
+    on. Replaces the old yfinance fetch, which was a THIRD price source with
+    its own quotes/timestamps."""
+    try:
+        from app.services.binance_service import get_recent_candles_df
+        sym = _CANDLE_SYMBOL.get(symbol.upper().replace("-", ""), symbol)
+        df = get_recent_candles_df(symbol=sym, interval=interval, limit=limit)
+        return df if df is not None else pd.DataFrame()
+    except Exception as e:
+        print(f"[LiveAdapter] candle fetch error ({symbol} {interval}): {e}")
+        return pd.DataFrame()
+
 
 def _tuned(tag: str, param: str, default: float) -> float:
     """
@@ -158,6 +177,7 @@ def generate_atr_trailing_signal(
             "timeframe":     "1H",
             "quality_score": 6,
             "raw_score":     6,
+            "confidence":    "High",
             "strategy_tag":  "ATR_Trailing",
             "confluences":   ["EMA-20 touch", f"ATR {atr_mult}× trail SL"],
             "setup":         "EMA20 Bounce + ATR Chandelier",
@@ -175,6 +195,7 @@ def generate_atr_trailing_signal(
             "timeframe":     "1H",
             "quality_score": 6,
             "raw_score":     6,
+            "confidence":    "High",
             "strategy_tag":  "ATR_Trailing",
             "confluences":   ["EMA-20 rejection", f"ATR {atr_mult}× trail SL"],
             "setup":         "EMA20 Rejection + ATR Chandelier",
@@ -198,10 +219,8 @@ def generate_smc_swing_signal(symbol: str, rr: float = None) -> list:
     SL: 0.03% beyond wick extreme of surrounding 12 1H candles.
     TP: entry ± rr × (entry − SL).
     """
-    ticker = _TICKER.get(symbol.upper().replace("-", ""), "BTC-USD")
-
-    df_4h = _yf(ticker, "30d", "4h")
-    df_1h = _yf(ticker, "10d", "1h")
+    df_4h = _candles(symbol, "4h", 200)
+    df_1h = _candles(symbol, "1h", 240)
 
     if df_4h.empty or df_1h.empty:
         return []
@@ -285,6 +304,7 @@ def generate_smc_swing_signal(symbol: str, rr: float = None) -> list:
         "timeframe":     "1H",
         "quality_score": 7,
         "raw_score":     7,
+        "confidence":    "High",
         "strategy_tag":  "SMC_Swing",
         "confluences":   confluences,
         "setup":         f"SMC 4H Liquidity Sweep + 1H MSS ({sweep_dir})",
@@ -306,12 +326,11 @@ def generate_momentum_signal(symbol: str, rr: float = None) -> list:
     SL: lowest low / highest high of prior 10 4H bars × 0.1% buffer.
     TP: entry ± rr × SL-distance.
     """
-    ticker = _TICKER.get(symbol.upper().replace("-", ""), "BTC-USD")
     is_eth = "ETH" in symbol.upper()
     tag    = "ETH_Momentum" if is_eth else "BTC_Momentum"
 
-    df_daily = _yf(ticker, "400d", "1d")
-    df_4h    = _yf(ticker, "60d",  "4h")
+    df_daily = _candles(symbol, "1d", 400)
+    df_4h    = _candles(symbol, "4h", 360)
 
     if df_daily.empty or df_4h.empty:
         return []
@@ -360,6 +379,7 @@ def generate_momentum_signal(symbol: str, rr: float = None) -> list:
             "timeframe":     "4H",
             "quality_score": qs,
             "raw_score":     qs,
+            "confidence":    "High",
             "strategy_tag":  tag,
             "confluences":   [
                 "Daily bull regime (50>200 EMA)",
@@ -382,6 +402,7 @@ def generate_momentum_signal(symbol: str, rr: float = None) -> list:
             "timeframe":     "4H",
             "quality_score": qs,
             "raw_score":     qs,
+            "confidence":    "High",
             "strategy_tag":  tag,
             "confluences":   [
                 "Daily bear regime (50<200 EMA)",
@@ -578,6 +599,7 @@ def generate_h4_break_retest_signal(
         "timeframe":     "4H",
         "quality_score": 8,
         "raw_score":     8,
+        "confidence":    "High",
         "strategy_tag":  "h4_break_retest",
         "confluences":   confluences,
         "setup":         f"H4 Break-and-Retest ({zone_dir.upper()})",
