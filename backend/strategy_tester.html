@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SMT — Strategy Tester</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --accent: #f0b429; --accent2: #e06c75; --green: #3fb950;
+    --red: #f85149; --blue: #58a6ff; --muted: #8b949e;
+    --text: #e6edf3; --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+  header { display:flex; align-items:center; gap:12px; padding:18px 28px; border-bottom:1px solid var(--border); background:var(--surface); }
+  header h1 { font-size:1.2rem; font-weight:700; color:var(--accent); }
+  header span { font-size:.85rem; color:var(--muted); }
+  .api-bar { display:flex; align-items:center; gap:10px; margin-left:auto; }
+  .api-bar label { font-size:.8rem; color:var(--muted); }
+  .api-bar input { background:#0d1117; border:1px solid var(--border); border-radius:6px; color:var(--text); padding:5px 10px; font-size:.8rem; width:220px; }
+  .api-bar button { padding:5px 14px; border-radius:6px; border:1px solid var(--accent); background:transparent; color:var(--accent); cursor:pointer; font-size:.8rem; }
+  .api-bar button:hover { background:rgba(240,180,41,.1); }
+
+  main { max-width:1200px; margin:0 auto; padding:24px 20px; }
+  h2 { font-size:1rem; font-weight:600; color:var(--accent); margin-bottom:14px; letter-spacing:.04em; text-transform:uppercase; }
+
+  /* Strategy Cards */
+  .strategy-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-bottom:36px; }
+  .strategy-card {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; display:flex; flex-direction:column; gap:12px; transition:border-color .2s;
+  }
+  .strategy-card:hover { border-color: var(--accent); }
+  .strategy-card.selected { border-color:var(--accent); box-shadow: 0 0 0 2px rgba(240,180,41,.25); }
+  .card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; }
+  .card-title { font-size:.95rem; font-weight:700; color:var(--text); }
+  .badge { font-size:.68rem; padding:2px 8px; border-radius:20px; font-weight:600; white-space:nowrap; }
+  .badge-builtin { background:rgba(88,166,255,.15); color:var(--blue); border:1px solid rgba(88,166,255,.3); }
+  .badge-custom  { background:rgba(63,185,80,.15); color:var(--green); border:1px solid rgba(63,185,80,.3); }
+  .card-desc { font-size:.8rem; color:var(--muted); line-height:1.5; }
+  .card-symbol { font-size:.75rem; color:var(--accent); font-weight:600; }
+
+  /* Mini stats */
+  .mini-stats { display:flex; gap:10px; flex-wrap:wrap; }
+  .mini-stat { background:#0d1117; border-radius:6px; padding:6px 10px; text-align:center; min-width:70px; }
+  .mini-stat .val { font-size:.9rem; font-weight:700; }
+  .mini-stat .lbl { font-size:.65rem; color:var(--muted); margin-top:2px; }
+  .val-green { color:var(--green); }
+  .val-red   { color:var(--red); }
+  .val-amber { color:var(--accent); }
+
+  .card-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+  .btn { padding:6px 14px; border-radius:6px; border:none; cursor:pointer; font-size:.8rem; font-weight:600; transition:opacity .15s; }
+  .btn:hover { opacity:.85; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-primary   { background:var(--accent); color:#0d1117; }
+  .btn-blue      { background:var(--blue); color:#0d1117; }
+  .btn-green     { background:var(--green); color:#0d1117; }
+  .btn-danger    { background:transparent; color:var(--red); border:1px solid var(--red); }
+  .btn-secondary { background:transparent; color:var(--muted); border:1px solid var(--border); }
+
+  /* Params panel */
+  .params-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  .param-group { display:flex; flex-direction:column; gap:4px; }
+  .param-group label { font-size:.72rem; color:var(--muted); }
+  .param-group input, .param-group select {
+    background:#0d1117; border:1px solid var(--border); border-radius:6px;
+    color:var(--text); padding:5px 8px; font-size:.82rem; width:90px;
+  }
+
+  /* Results panel */
+  #results-panel { display:none; }
+  .results-header { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+  .results-header h2 { margin:0; }
+  .ran-at { font-size:.75rem; color:var(--muted); }
+
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-bottom:24px; }
+  .stat-box { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 16px; }
+  .stat-box .sv { font-size:1.35rem; font-weight:700; }
+  .stat-box .sl { font-size:.72rem; color:var(--muted); margin-top:4px; }
+
+  /* Day breakdown table */
+  .table-wrap { overflow-x:auto; border-radius:8px; border:1px solid var(--border); margin-bottom:24px; }
+  table { width:100%; border-collapse:collapse; font-size:.82rem; }
+  th { background:#1c2128; padding:10px 14px; text-align:left; color:var(--muted); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; }
+  td { padding:9px 14px; border-top:1px solid var(--border); }
+  tr:hover td { background:rgba(255,255,255,.03); }
+  .td-win  { color:var(--green); font-weight:700; }
+  .td-sl   { color:var(--red);   font-weight:700; }
+  .td-pos  { color:var(--green); }
+  .td-neg  { color:var(--red); }
+
+  /* Trade log */
+  #trade-log-wrap { display:none; }
+  .toggle-trades { background:transparent; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:5px 14px; cursor:pointer; font-size:.8rem; margin-bottom:12px; }
+  .toggle-trades:hover { color:var(--text); border-color:var(--text); }
+
+  /* Deploy bar */
+  .deploy-bar { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 22px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:24px; }
+  .deploy-bar span { font-size:.85rem; color:var(--muted); }
+  .deploy-select { background:#0d1117; border:1px solid var(--border); border-radius:6px; color:var(--text); padding:6px 10px; font-size:.82rem; }
+
+  /* Loading spinner */
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Toast */
+  #toast { position:fixed; bottom:24px; right:24px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 18px; font-size:.85rem; box-shadow:0 4px 20px rgba(0,0,0,.5); transition:opacity .3s; opacity:0; pointer-events:none; z-index:999; max-width:320px; }
+  #toast.show { opacity:1; }
+  #toast.toast-ok  { border-color:var(--green); }
+  #toast.toast-err { border-color:var(--red); }
+
+  .empty-state { text-align:center; color:var(--muted); padding:40px 20px; font-size:.9rem; }
+
+  /* Equity curve bar chart placeholder */
+  .equity-bars { display:flex; align-items:flex-end; gap:3px; height:60px; margin-top:8px; }
+  .eq-bar { flex:1; border-radius:2px 2px 0 0; min-width:4px; }
+
+  .section-divider { border:none; border-top:1px solid var(--border); margin:28px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚗️ SMT Strategy Tester</h1>
+  <span>Backtest → Analyse → Deploy</span>
+  <div class="api-bar">
+    <label>API</label>
+    <input id="api-url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000" />
+    <button onclick="loadStrategies()">↺ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <!-- Strategy List -->
+  <h2>Strategies</h2>
+  <div id="strategy-grid" class="strategy-grid">
+    <div class="empty-state"><span class="spinner"></span> Loading strategies…</div>
+  </div>
+
+  <hr class="section-divider" />
+
+  <!-- Results Panel -->
+  <div id="results-panel">
+    <div class="results-header">
+      <h2 id="results-title">Backtest Results</h2>
+      <span class="ran-at" id="ran-at"></span>
+    </div>
+
+    <div class="stats-grid" id="stats-grid"></div>
+
+    <!-- Equity mini chart -->
+    <div style="margin-bottom:24px;">
+      <div style="font-size:.75rem; color:var(--muted); margin-bottom:6px;">Day-by-day P&L</div>
+      <div class="equity-bars" id="equity-bars"></div>
+    </div>
+
+    <!-- Deploy bar -->
+    <div class="deploy-bar">
+      <span>Deploy this strategy to trading account:</span>
+      <select class="deploy-select" id="deploy-mode">
+        <option value="demo">Demo Account</option>
+        <option value="live">Live Account</option>
+        <option value="paper">Paper Trading</option>
+      </select>
+      <button class="btn btn-green" onclick="deployStrategy()">🚀 Deploy</button>
+      <span id="deploy-status" style="font-size:.8rem; color:var(--green);"></span>
+    </div>
+
+    <!-- Day Breakdown -->
+    <h2 style="margin-bottom:12px;">Day Breakdown</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Trades</th><th>Wins</th><th>Losses</th>
+            <th>Win Rate</th><th>P&amp;L ($)</th>
+          </tr>
+        </thead>
+        <tbody id="day-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Trade Log toggle -->
+    <button class="toggle-trades" onclick="toggleTrades()">▼ Show individual trades</button>
+    <div id="trade-log-wrap">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Time (IST)</th><th>Dir</th>
+              <th>Entry</th><th>Exit</th><th>Result</th><th>P&amp;L</th>
+              <th>VAH</th><th>VAL</th>
+            </tr>
+          </thead>
+          <tbody id="trade-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let strategies   = [];
+let selectedId   = null;
+let lastResult   = null;
+
+const api = () => document.getElementById('api-url').value.replace(/\/$/, '');
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', loadStrategies);
+
+async function loadStrategies() {
+  const grid = document.getElementById('strategy-grid');
+  grid.innerHTML = '<div class="empty-state"><span class="spinner"></span> Loading…</div>';
+  try {
+    const res  = await fetch(`${api()}/strategy-tester/list`);
+    const data = await res.json();
+    strategies = data.strategies || [];
+    renderGrid();
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="color:var(--red)">
+      ⚠️ Cannot reach backend at ${api()}<br>
+      <small>Make sure SMT backend is running (python -m uvicorn app.main:app)</small>
+    </div>`;
+  }
+}
+
+// ─── Render Strategy Cards ────────────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('strategy-grid');
+  if (!strategies.length) {
+    grid.innerHTML = '<div class="empty-state">No strategies found.</div>';
+    return;
+  }
+
+  grid.innerHTML = strategies.map(s => {
+    const lr      = s.last_result;
+    const sum     = lr ? (lr.summary || {}) : null;
+    const isBuilt = s.builtin;
+
+    const miniStats = sum ? `
+      <div class="mini-stats">
+        <div class="mini-stat">
+          <div class="val ${sum.win_rate >= 50 ? 'val-green' : 'val-red'}">${sum.win_rate ?? '—'}%</div>
+          <div class="lbl">Win Rate</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val val-amber">${sum.total_trades ?? '—'}</div>
+          <div class="lbl">Trades</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val ${sum.net_pnl >= 0 ? 'val-green' : 'val-red'}">$${sum.net_pnl ?? '—'}</div>
+          <div class="lbl">Net P&L</div>
+        </div>
+        <div class="mini-stat">
+          <div class="val val-amber">${sum.profit_factor ?? '—'}</div>
+          <div class="lbl">P.Factor</div>
+        </div>
+      </div>
+    ` : `<div style="font-size:.75rem; color:var(--muted); font-style:italic;">No backtest run yet</div>`;
+
+    const deleteBtn = !isBuilt
+      ? `<button class="btn btn-danger" onclick="deleteStrategy('${s.id}', event)">🗑 Delete</button>`
+      : '';
+
+    const defaultDays = (s.params && s.params.days)       || 30;
+    const defaultSL   = (s.params && s.params.sl_distance) || 8.0;
+    const defaultRR   = (s.params && s.params.rr_ratio)    || 2.0;
+
+    return `
+    <div class="strategy-card ${selectedId === s.id ? 'selected' : ''}" id="card-${s.id}" onclick="selectStrategy('${s.id}')">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${s.name}</div>
+          <div class="card-symbol">${s.symbol}</div>
+        </div>
+        <span class="badge ${isBuilt ? 'badge-builtin' : 'badge-custom'}">${isBuilt ? 'Built-in' : 'Custom'}</span>
+      </div>
+      <div class="card-desc">${s.description}</div>
+
+      <div class="params-row" onclick="event.stopPropagation()">
+        <div class="param-group">
+          <label>Days</label>
+          <input type="number" id="param-days-${s.id}" value="${defaultDays}" min="7" max="59" step="1" />
+        </div>
+        ${s.id === 'gold_frvp_liquidity_trap' ? `
+        <div class="param-group">
+          <label>SL ($)</label>
+          <input type="number" id="param-sl-${s.id}" value="${defaultSL}" min="4" max="25" step="0.5" />
+        </div>` : ''}
+        <div class="param-group">
+          <label>RR Ratio</label>
+          <input type="number" id="param-rr-${s.id}" value="${defaultRR}" min="1" max="5" step="0.5" />
+        </div>
+      </div>
+
+      ${miniStats}
+
+      <div class="card-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-primary" id="run-btn-${s.id}" onclick="runBacktest('${s.id}')">▶ Run Backtest</button>
+        ${lr ? `<button class="btn btn-blue" onclick="showResults('${s.id}')">📊 View Results</button>` : ''}
+        ${deleteBtn}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Select strategy ─────────────────────────────────────────────────────────
+function selectStrategy(id) {
+  selectedId = id;
+  document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById(`card-${id}`);
+  if (card) card.classList.add('selected');
+}
+
+// ─── Run Backtest ─────────────────────────────────────────────────────────────
+async function runBacktest(strategyId) {
+  selectStrategy(strategyId);
+  const btn = document.getElementById(`run-btn-${strategyId}`);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Running…';
+
+  const days = parseInt(document.getElementById(`param-days-${strategyId}`)?.value || 30);
+  const rr   = parseFloat(document.getElementById(`param-rr-${strategyId}`)?.value || 2.0);
+  const slEl = document.getElementById(`param-sl-${strategyId}`);
+  const sl   = slEl ? parseFloat(slEl.value) : 8.0;
+
+  const strategy = strategies.find(s => s.id === strategyId);
+  const symbol   = strategy?.symbol || 'XAUUSD';
+
+  const params = new URLSearchParams({
+    strategy_id: strategyId,
+    days, rr_ratio: rr, sl_distance: sl, symbol
+  });
+
+  try {
+    const res = await fetch(`${api()}/strategy-tester/run?${params}`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Backtest failed');
+    }
+    const result = await res.json();
+
+    // Cache result on strategy object
+    const idx = strategies.findIndex(s => s.id === strategyId);
+    if (idx >= 0) {
+      strategies[idx].last_result = {
+        summary:       result.summary,
+        day_breakdown: result.day_breakdown,
+        trades:        result.trades,
+        ran_at:        result.ran_at,
+        params:        { days, sl_distance: sl, rr_ratio: rr },
+      };
+    }
+    renderGrid();
+    showResults(strategyId, result);
+    toast('Backtest complete!', 'ok');
+
+  } catch (e) {
+    toast(`Error: ${e.message}`, 'err');
+    btn.disabled = false;
+    btn.innerHTML = '▶ Run Backtest';
+  }
+}
+
+// ─── Show Results ─────────────────────────────────────────────────────────────
+function showResults(strategyId, result) {
+  const strategy = strategies.find(s => s.id === strategyId);
+  const lr       = result || strategy?.last_result;
+  if (!lr) return;
+
+  lastResult = { strategyId, ...lr };
+  selectedId = strategyId;
+
+  const sum = lr.summary || {};
+  const panel = document.getElementById('results-panel');
+  panel.style.display = 'block';
+
+  document.getElementById('results-title').textContent =
+    `Results — ${strategy?.name || strategyId}`;
+  document.getElementById('ran-at').textContent =
+    lr.ran_at ? `Run at: ${lr.ran_at}` : '';
+
+  // Stats grid
+  const stats = [
+    { label: 'Total Trades',    val: sum.total_trades ?? '—', cls: 'val-amber' },
+    { label: 'Wins',            val: sum.wins         ?? '—', cls: 'val-green' },
+    { label: 'Losses',          val: sum.losses       ?? '—', cls: 'val-red'   },
+    { label: 'Win Rate',        val: `${sum.win_rate ?? '—'}%`,
+      cls: (sum.win_rate >= sum.breakeven_wr) ? 'val-green' : 'val-red' },
+    { label: 'Breakeven WR',    val: `${sum.breakeven_wr ?? '—'}%`, cls: '' },
+    { label: 'Net P&L',         val: `$${sum.net_pnl ?? '—'}`,
+      cls: sum.net_pnl >= 0 ? 'val-green' : 'val-red' },
+    { label: 'Profit Factor',   val: sum.profit_factor ?? '—',
+      cls: sum.profit_factor >= 1 ? 'val-green' : 'val-red' },
+    { label: 'Avg Win',         val: `$${sum.avg_win ?? '—'}`, cls: 'val-green' },
+    { label: 'Avg Loss',        val: `$${sum.avg_loss ?? '—'}`, cls: 'val-red'  },
+    { label: 'Max Drawdown',    val: `$${sum.max_drawdown ?? '—'}`, cls: 'val-red' },
+    { label: 'Days Tested',     val: sum.days_tested ?? lr.days ?? '—', cls: '' },
+    { label: 'SL / RR',         val: `$${sum.sl_used ?? '—'} / 1:${sum.rr_used ?? '—'}`, cls: '' },
+  ];
+
+  document.getElementById('stats-grid').innerHTML = stats.map(s => `
+    <div class="stat-box">
+      <div class="sv ${s.cls}">${s.val}</div>
+      <div class="sl">${s.label}</div>
+    </div>
+  `).join('');
+
+  // Mini equity bar chart
+  const days = lr.day_breakdown || [];
+  const pnls = days.map(d => d.pnl || 0);
+  const maxAbs = Math.max(...pnls.map(Math.abs), 1);
+  const bars = document.getElementById('equity-bars');
+  bars.innerHTML = pnls.map((p, i) => {
+    const h   = Math.round((Math.abs(p) / maxAbs) * 55) + 5;
+    const col = p >= 0 ? 'var(--green)' : 'var(--red)';
+    const day = days[i]?.date || '';
+    return `<div class="eq-bar" style="height:${h}px; background:${col}; opacity:.8;" title="${day}: $${p}"></div>`;
+  }).join('');
+
+  // Day breakdown table
+  document.getElementById('day-tbody').innerHTML = days.map(d => `
+    <tr>
+      <td>${d.date}</td>
+      <td>${d.trades}</td>
+      <td class="td-win">${d.wins}</td>
+      <td style="color:var(--red)">${d.losses}</td>
+      <td class="${d.win_rate >= 50 ? 'td-win' : 'td-sl'}">${d.win_rate}%</td>
+      <td class="${d.pnl >= 0 ? 'td-pos' : 'td-neg'}">$${d.pnl.toFixed(2)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="6" style="color:var(--muted); text-align:center">No trades found</td></tr>';
+
+  // Trade log
+  const trades = lr.trades || [];
+  document.getElementById('trade-tbody').innerHTML = trades.slice(-100).map(t => `
+    <tr>
+      <td>${t.date}</td>
+      <td>${(t.time || '').slice(11, 16)}</td>
+      <td style="color:${t.direction==='LONG' ? 'var(--green)' : 'var(--accent2)'}">${t.direction}</td>
+      <td>${t.entry}</td>
+      <td>${t.exit}</td>
+      <td class="${t.result==='TP' ? 'td-win' : 'td-sl'}">${t.result}</td>
+      <td class="${t.pnl >= 0 ? 'td-pos' : 'td-neg'}">$${t.pnl.toFixed(2)}</td>
+      <td style="color:var(--muted)">${t.vah ?? '—'}</td>
+      <td style="color:var(--muted)">${t.val ?? '—'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="9" style="color:var(--muted); text-align:center">No trades</td></tr>';
+
+  panel.scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleTrades() {
+  const wrap = document.getElementById('trade-log-wrap');
+  const btn  = document.querySelector('.toggle-trades');
+  const open = wrap.style.display === 'block';
+  wrap.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? '▼ Show individual trades' : '▲ Hide individual trades';
+}
+
+// ─── Deploy ───────────────────────────────────────────────────────────────────
+async function deployStrategy() {
+  if (!lastResult) { toast('Run a backtest first', 'err'); return; }
+  const mode = document.getElementById('deploy-mode').value;
+  const strategyId = lastResult.strategyId;
+  const statusEl = document.getElementById('deploy-status');
+
+  statusEl.textContent = '…deploying';
+  try {
+    const res = await fetch(
+      `${api()}/strategy-tester/deploy?strategy_id=${strategyId}&mode=${mode}`,
+      { method: 'POST' }
+    );
+    if (!res.ok) throw new Error((await res.json()).detail || 'Deploy failed');
+    const data = await res.json();
+    statusEl.textContent = `✅ Deployed to ${mode}`;
+    toast(`Strategy deployed to ${mode} account!`, 'ok');
+  } catch (e) {
+    statusEl.textContent = '';
+    toast(`Deploy failed: ${e.message}`, 'err');
+  }
+}
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+async function deleteStrategy(strategyId, event) {
+  event.stopPropagation();
+  const strategy = strategies.find(s => s.id === strategyId);
+  if (!confirm(`Delete "${strategy?.name || strategyId}"?\nThis cannot be undone.`)) return;
+
+  try {
+    const res = await fetch(`${api()}/strategy-tester/${strategyId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error((await res.json()).detail || 'Delete failed');
+    strategies = strategies.filter(s => s.id !== strategyId);
+    if (selectedId === strategyId) {
+      selectedId = null;
+      document.getElementById('results-panel').style.display = 'none';
+    }
+    renderGrid();
+    toast('Strategy deleted.', 'ok');
+  } catch (e) {
+    toast(`Error: ${e.message}`, 'err');
+  }
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `show toast-${type}`;
+  setTimeout(() => { el.className = ''; }, 3500);
+}
+</script>
+</body>
+</html>

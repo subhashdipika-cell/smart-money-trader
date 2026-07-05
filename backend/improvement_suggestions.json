@@ -1,0 +1,135 @@
+{
+  "suggestions": [
+    {
+      "type": "warning",
+      "priority": "high",
+      "title": "\u26a0\ufe0f Avoid Asia session",
+      "detail": "Asia session only 25% win rate over 4 trades.",
+      "action": "Add Asia session filter \u2014 skip signals generated during this time.",
+      "metric": "25% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "high",
+      "title": "\u26a0\ufe0f BTCUSDT signals underperforming",
+      "detail": "BTCUSDT has only 14% win rate over 7 trades.",
+      "action": "Raise quality score threshold for BTCUSDT by +1. Consider adding volume confirmation.",
+      "metric": "14% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"15m structure break + Fair value gap displacement\" only wins 25% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "25% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"15m structure break + Liquidity sweep\" only wins 25% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "25% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"Fair value gap displacement + Liquidity sweep\" only wins 25% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "25% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"1h bearish bias + Bearish engulfing candle\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"1h bearish bias + EMA13 < EMA50 (momentum confirms)\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"1h bearish bias + EMA50 < EMA200 (macro bearish)\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"1h bearish bias + Price pulled back to EMA50\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"Bearish engulfing candle + EMA13 < EMA50 (momentum confirms)\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"Bearish engulfing candle + EMA50 < EMA200 (macro bearish)\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"Bearish engulfing candle + Price pulled back to EMA50\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"EMA13 < EMA50 (momentum confirms) + EMA50 < EMA200 (macro bearish)\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"EMA13 < EMA50 (momentum confirms) + Price pulled back to EMA50\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "warning",
+      "priority": "medium",
+      "title": "\ud83d\udeab Weak confluence combo detected",
+      "detail": "\"EMA50 < EMA200 (macro bearish) + Price pulled back to EMA50\" only wins 0% of the time (4 trades).",
+      "action": "Add -1 penalty when these two confluences appear without stronger confirmation.",
+      "metric": "0% win rate"
+    },
+    {
+      "type": "feature",
+      "priority": "medium",
+      "title": "\ud83d\udca1 Consider adding RSI divergence filter",
+      "detail": "With 7 losses analysed, many false sweeps could be filtered by RSI divergence confirmation.",
+      "action": "Add RSI(14) divergence check: only take BUY signals when RSI is making higher lows, SELL when lower highs.",
+      "metric": "Potential improvement"
+    }
+  ],
+  "total_resolved": 8,
+  "generated_at": "2026-06-01 18:41 UTC",
+  "summary": "16 suggestions based on 8 resolved trades."
+}

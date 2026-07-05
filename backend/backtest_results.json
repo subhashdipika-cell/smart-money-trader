@@ -1,0 +1,26 @@
+{
+  "results": {
+    "BTCUSDT": {
+      "symbol": "BTCUSDT",
+      "total_signals": 0,
+      "win_rate": null,
+      "wins": 0,
+      "losses": 0,
+      "conf_rates": {},
+      "best_threshold": 6,
+      "best_wr": 0
+    },
+    "ETHUSDT": {
+      "symbol": "ETHUSDT",
+      "total_signals": 0,
+      "win_rate": null,
+      "wins": 0,
+      "losses": 0,
+      "conf_rates": {},
+      "best_threshold": 6,
+      "best_wr": 0
+    }
+  },
+  "ran_at": "2026-06-09 15:24 UTC",
+  "weights_updated": true
+}

@@ -1,0 +1,24 @@
+{
+  "active_strategies": [
+    "HTF_ICT_Intraday",
+    "gold_frvp_liquidity_trap",
+    "ATR_Trailing"
+  ],
+  "active_strategies_demo": [
+    "HTF_ICT_Intraday",
+    "gold_frvp_liquidity_trap",
+    "ATR_Trailing",
+    "ETH_Momentum",
+    "SMC_Swing",
+    "BTC_Momentum",
+    "EMA_9_20_Pullback"
+  ],
+  "active_strategies_live": [
+    "HTF_ICT_Intraday",
+    "gold_frvp_liquidity_trap",
+    "ATR_Trailing",
+    "SMC_Swing",
+    "BTC_Momentum",
+    "ETH_Momentum"
+  ]
+}

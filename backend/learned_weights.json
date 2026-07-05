@@ -1,0 +1,651 @@
+{
+  "min_quality_score": 8,
+  "min_quality_score_BTCUSDT": 6,
+  "min_quality_score_ETHUSDT": 6,
+  "confluence_bonuses": {
+    "Liquidity sweep": 0,
+    "Fair value gap displacement": 0,
+    "15m structure break": 0,
+    "Displacement candle": 0
+  },
+  "confluence_win_rates": {
+    "Liquidity sweep": 0.808,
+    "Fair value gap displacement": 0.808,
+    "15m structure break": 0.808,
+    "Displacement candle": 0.808
+  },
+  "overall_win_rate": 0.25,
+  "total_resolved": 8,
+  "notes": "Learned from 8 resolved signals across all assets. Recency-weighted win rate: 25%. Quality threshold: 8. Loss streak: 0. Direction blocks: 0.",
+  "total_wins": 2,
+  "direction_blocks": {},
+  "strategy_tuning": {
+    "atr_trailing|ETHUSDT": {
+      "strategy_id": "atr_trailing",
+      "symbol": "ETHUSDT",
+      "param": "atr_mult",
+      "days": 60,
+      "results": [
+        {
+          "trades": 9,
+          "wins": 5,
+          "losses": 3,
+          "win_rate": 62.5,
+          "net": 218.0,
+          "profit_factor": 3.7,
+          "value": 2.0
+        },
+        {
+          "trades": 9,
+          "wins": 5,
+          "losses": 3,
+          "win_rate": 62.5,
+          "net": 182.95,
+          "profit_factor": 2.75,
+          "value": 2.5
+        },
+        {
+          "trades": 7,
+          "wins": 3,
+          "losses": 3,
+          "win_rate": 50.0,
+          "net": 221.28,
+          "profit_factor": 3.18,
+          "value": 3.0
+        },
+        {
+          "trades": 6,
+          "wins": 2,
+          "losses": 3,
+          "win_rate": 40.0,
+          "net": 205.18,
+          "profit_factor": 2.63,
+          "value": 3.5
+        }
+      ],
+      "best": {
+        "trades": 7,
+        "wins": 3,
+        "losses": 3,
+        "win_rate": 50.0,
+        "net": 221.28,
+        "profit_factor": 3.18,
+        "value": 3.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 18:39 UTC"
+    },
+    "atr_trailing|BTCUSDT": {
+      "strategy_id": "atr_trailing",
+      "symbol": "BTCUSDT",
+      "param": "atr_mult",
+      "days": 60,
+      "results": [
+        {
+          "trades": 9,
+          "wins": 5,
+          "losses": 4,
+          "win_rate": 55.6,
+          "net": 4441.12,
+          "profit_factor": 2.86,
+          "value": 2.0
+        },
+        {
+          "trades": 7,
+          "wins": 3,
+          "losses": 3,
+          "win_rate": 50.0,
+          "net": 4203.43,
+          "profit_factor": 3.72,
+          "value": 2.5
+        },
+        {
+          "trades": 7,
+          "wins": 2,
+          "losses": 4,
+          "win_rate": 33.3,
+          "net": 2195.83,
+          "profit_factor": 1.8,
+          "value": 3.0
+        },
+        {
+          "trades": 6,
+          "wins": 2,
+          "losses": 3,
+          "win_rate": 40.0,
+          "net": 2938.87,
+          "profit_factor": 2.15,
+          "value": 3.5
+        }
+      ],
+      "best": {
+        "trades": 9,
+        "wins": 5,
+        "losses": 4,
+        "win_rate": 55.6,
+        "net": 4441.12,
+        "profit_factor": 2.86,
+        "value": 2.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:10 UTC"
+    },
+    "choch_scalp|BTCUSDT": {
+      "strategy_id": "choch_scalp",
+      "symbol": "BTCUSDT",
+      "param": "rr",
+      "days": 60,
+      "results": [
+        {
+          "trades": 62,
+          "wins": 21,
+          "losses": 41,
+          "win_rate": 33.9,
+          "net": -570.02,
+          "profit_factor": 0.77,
+          "value": 1.5
+        },
+        {
+          "trades": 62,
+          "wins": 19,
+          "losses": 43,
+          "win_rate": 30.6,
+          "net": -1624.33,
+          "profit_factor": 0.88,
+          "value": 2.0
+        },
+        {
+          "trades": 62,
+          "wins": 16,
+          "losses": 46,
+          "win_rate": 25.8,
+          "net": -1488.31,
+          "profit_factor": 0.87,
+          "value": 2.5
+        },
+        {
+          "trades": 62,
+          "wins": 15,
+          "losses": 47,
+          "win_rate": 24.2,
+          "net": -274.25,
+          "profit_factor": 0.96,
+          "value": 3.0
+        }
+      ],
+      "best": {
+        "trades": 62,
+        "wins": 15,
+        "losses": 47,
+        "win_rate": 24.2,
+        "net": -274.25,
+        "profit_factor": 0.96,
+        "value": 3.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:09 UTC"
+    },
+    "choch_swing|BTCUSDT": {
+      "strategy_id": "choch_swing",
+      "symbol": "BTCUSDT",
+      "param": "rr",
+      "days": 60,
+      "results": [
+        {
+          "trades": 29,
+          "wins": 7,
+          "losses": 22,
+          "win_rate": 24.1,
+          "net": -3407.94,
+          "profit_factor": 0.64,
+          "value": 2.0
+        },
+        {
+          "trades": 29,
+          "wins": 5,
+          "losses": 24,
+          "win_rate": 17.2,
+          "net": -4058.64,
+          "profit_factor": 0.62,
+          "value": 3.0
+        },
+        {
+          "trades": 29,
+          "wins": 4,
+          "losses": 25,
+          "win_rate": 13.8,
+          "net": -4214.03,
+          "profit_factor": 0.64,
+          "value": 4.0
+        }
+      ],
+      "best": {
+        "trades": 29,
+        "wins": 7,
+        "losses": 22,
+        "win_rate": 24.1,
+        "net": -3407.94,
+        "profit_factor": 0.64,
+        "value": 2.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:10 UTC"
+    },
+    "momentum_scalp|BTCUSDT": {
+      "strategy_id": "momentum_scalp",
+      "symbol": "BTCUSDT",
+      "param": "rr",
+      "days": 60,
+      "results": [
+        {
+          "trades": 760,
+          "wins": 415,
+          "losses": 345,
+          "win_rate": 54.6,
+          "net": 4221.6,
+          "profit_factor": 1.17,
+          "value": 1.0
+        },
+        {
+          "trades": 758,
+          "wins": 380,
+          "losses": 378,
+          "win_rate": 50.1,
+          "net": 4926.97,
+          "profit_factor": 1.19,
+          "value": 1.5
+        },
+        {
+          "trades": 755,
+          "wins": 368,
+          "losses": 387,
+          "win_rate": 48.7,
+          "net": 6081.7,
+          "profit_factor": 1.23,
+          "value": 2.0
+        },
+        {
+          "trades": 755,
+          "wins": 366,
+          "losses": 389,
+          "win_rate": 48.5,
+          "net": 7041.99,
+          "profit_factor": 1.26,
+          "value": 2.5
+        }
+      ],
+      "best": {
+        "trades": 755,
+        "wins": 366,
+        "losses": 389,
+        "win_rate": 48.5,
+        "net": 7041.99,
+        "profit_factor": 1.26,
+        "value": 2.5
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:11 UTC"
+    },
+    "smc_swing|BTCUSD": {
+      "strategy_id": "smc_swing",
+      "symbol": "BTCUSD",
+      "param": "rr_ratio",
+      "days": 60,
+      "results": [
+        {
+          "trades": 15,
+          "wins": 3,
+          "losses": 10,
+          "win_rate": 23.1,
+          "net": 2055.79,
+          "profit_factor": 0.92,
+          "value": 2.5
+        },
+        {
+          "trades": 15,
+          "wins": 3,
+          "losses": 10,
+          "win_rate": 23.1,
+          "net": 3463.58,
+          "profit_factor": 1.02,
+          "value": 3.0
+        },
+        {
+          "trades": 15,
+          "wins": 1,
+          "losses": 10,
+          "win_rate": 9.1,
+          "net": 3177.35,
+          "profit_factor": 0.48,
+          "value": 4.0
+        }
+      ],
+      "best": {
+        "trades": 15,
+        "wins": 3,
+        "losses": 10,
+        "win_rate": 23.1,
+        "net": 3463.58,
+        "profit_factor": 1.02,
+        "value": 3.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:12 UTC"
+    },
+    "btc_momentum|BTCUSDT": {
+      "strategy_id": "btc_momentum",
+      "symbol": "BTCUSDT",
+      "param": "rsi_high",
+      "days": 60,
+      "results": [
+        {
+          "trades": 14,
+          "wins": 5,
+          "losses": 9,
+          "win_rate": 35.7,
+          "net": -3777.06,
+          "profit_factor": 0.66,
+          "value": 55.0
+        },
+        {
+          "trades": 23,
+          "wins": 10,
+          "losses": 13,
+          "win_rate": 43.5,
+          "net": 9826.75,
+          "profit_factor": 1.7,
+          "value": 60.0
+        },
+        {
+          "trades": 26,
+          "wins": 10,
+          "losses": 16,
+          "win_rate": 38.5,
+          "net": 7741.45,
+          "profit_factor": 1.48,
+          "value": 65.0
+        },
+        {
+          "trades": 29,
+          "wins": 11,
+          "losses": 18,
+          "win_rate": 37.9,
+          "net": 15566.81,
+          "profit_factor": 1.79,
+          "value": 70.0
+        }
+      ],
+      "best": {
+        "trades": 29,
+        "wins": 11,
+        "losses": 18,
+        "win_rate": 37.9,
+        "net": 15566.81,
+        "profit_factor": 1.79,
+        "value": 70.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:13 UTC"
+    },
+    "eth_momentum|ETHUSD": {
+      "strategy_id": "eth_momentum",
+      "symbol": "ETHUSD",
+      "param": "rsi_high",
+      "days": 60,
+      "results": [
+        {
+          "trades": 14,
+          "wins": 4,
+          "losses": 10,
+          "win_rate": 28.6,
+          "net": -465.44,
+          "profit_factor": 0.26,
+          "value": 55.0
+        },
+        {
+          "trades": 21,
+          "wins": 9,
+          "losses": 12,
+          "win_rate": 42.9,
+          "net": 100.61,
+          "profit_factor": 1.13,
+          "value": 60.0
+        },
+        {
+          "trades": 30,
+          "wins": 13,
+          "losses": 17,
+          "win_rate": 43.3,
+          "net": 411.42,
+          "profit_factor": 1.43,
+          "value": 65.0
+        },
+        {
+          "trades": 33,
+          "wins": 13,
+          "losses": 20,
+          "win_rate": 39.4,
+          "net": 249.14,
+          "profit_factor": 1.22,
+          "value": 70.0
+        }
+      ],
+      "best": {
+        "trades": 30,
+        "wins": 13,
+        "losses": 17,
+        "win_rate": 43.3,
+        "net": 411.42,
+        "profit_factor": 1.43,
+        "value": 65.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:14 UTC"
+    },
+    "gold_frvp_liquidity_trap|XAUUSD": {
+      "strategy_id": "gold_frvp_liquidity_trap",
+      "symbol": "XAUUSD",
+      "param": "rr_ratio",
+      "days": 60,
+      "results": [
+        {
+          "trades": 43,
+          "wins": 19,
+          "losses": 24,
+          "win_rate": 44.2,
+          "net": 36.0,
+          "profit_factor": 1.19,
+          "value": 1.5
+        },
+        {
+          "trades": 43,
+          "wins": 18,
+          "losses": 25,
+          "win_rate": 41.9,
+          "net": 88.0,
+          "profit_factor": 1.44,
+          "value": 2.0
+        },
+        {
+          "trades": 46,
+          "wins": 13,
+          "losses": 33,
+          "win_rate": 28.3,
+          "net": 48.0,
+          "profit_factor": 1.18,
+          "value": 3.0
+        }
+      ],
+      "best": {
+        "trades": 43,
+        "wins": 18,
+        "losses": 25,
+        "win_rate": 41.9,
+        "net": 88.0,
+        "profit_factor": 1.44,
+        "value": 2.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:14 UTC"
+    },
+    "london_breakout|XAUUSD": {
+      "strategy_id": "london_breakout",
+      "symbol": "XAUUSD",
+      "param": "rr_ratio",
+      "days": 60,
+      "results": [
+        {
+          "trades": 20,
+          "wins": 6,
+          "losses": 14,
+          "win_rate": 30.0,
+          "net": -543.79,
+          "profit_factor": 0.6,
+          "value": 1.5
+        },
+        {
+          "trades": 20,
+          "wins": 5,
+          "losses": 15,
+          "win_rate": 25.0,
+          "net": -564.83,
+          "profit_factor": 0.61,
+          "value": 2.0
+        },
+        {
+          "trades": 20,
+          "wins": 5,
+          "losses": 15,
+          "win_rate": 25.0,
+          "net": -143.77,
+          "profit_factor": 0.9,
+          "value": 3.0
+        }
+      ],
+      "best": {
+        "trades": 20,
+        "wins": 5,
+        "losses": 15,
+        "win_rate": 25.0,
+        "net": -143.77,
+        "profit_factor": 0.9,
+        "value": 3.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:15 UTC"
+    },
+    "m5_mean_reversion|XAUUSD": {
+      "strategy_id": "m5_mean_reversion",
+      "symbol": "XAUUSD",
+      "param": "rr_ratio",
+      "days": 60,
+      "results": [
+        {
+          "trades": 26,
+          "wins": 11,
+          "losses": 15,
+          "win_rate": 42.3,
+          "net": 82.32,
+          "profit_factor": 1.05,
+          "value": 1.5
+        },
+        {
+          "trades": 26,
+          "wins": 11,
+          "losses": 15,
+          "win_rate": 42.3,
+          "net": 82.32,
+          "profit_factor": 1.05,
+          "value": 2.0
+        },
+        {
+          "trades": 26,
+          "wins": 11,
+          "losses": 15,
+          "win_rate": 42.3,
+          "net": 82.32,
+          "profit_factor": 1.05,
+          "value": 3.0
+        }
+      ],
+      "best": {
+        "trades": 26,
+        "wins": 11,
+        "losses": 15,
+        "win_rate": 42.3,
+        "net": 82.32,
+        "profit_factor": 1.05,
+        "value": 1.5
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:16 UTC"
+    },
+    "h4_break_retest|XAUUSD": {
+      "strategy_id": "h4_break_retest",
+      "symbol": "XAUUSD",
+      "param": "rr_ratio",
+      "days": 60,
+      "results": [
+        {
+          "trades": 11,
+          "wins": 5,
+          "losses": 6,
+          "win_rate": 45.5,
+          "net": 139.54,
+          "profit_factor": 1.23,
+          "value": 1.5
+        },
+        {
+          "trades": 11,
+          "wins": 4,
+          "losses": 7,
+          "win_rate": 36.4,
+          "net": 10.41,
+          "profit_factor": 1.01,
+          "value": 2.0
+        },
+        {
+          "trades": 11,
+          "wins": 4,
+          "losses": 7,
+          "win_rate": 36.4,
+          "net": 376.58,
+          "profit_factor": 1.52,
+          "value": 3.0
+        }
+      ],
+      "best": {
+        "trades": 11,
+        "wins": 4,
+        "losses": 7,
+        "win_rate": 36.4,
+        "net": 376.58,
+        "profit_factor": 1.52,
+        "value": 3.0
+      },
+      "low_sample": false,
+      "ran_at": "2026-06-10 19:17 UTC"
+    }
+  },
+  "applied_params": {
+    "h4_break_retest": {
+      "strategy_id": "h4_break_retest",
+      "symbol": "XAUUSD",
+      "param": "rr_ratio",
+      "value": 3.0,
+      "expected": {
+        "trades": 11,
+        "win_rate": 36.4,
+        "net": 376.58,
+        "profit_factor": 1.52
+      },
+      "applied_at": "2026-06-10 19:18 UTC"
+    }
+  },
+  "score_outcome_correlation": {
+    "8": {
+      "win_rate": 0.2,
+      "total": 5
+    }
+  }
+}

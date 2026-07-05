@@ -1,0 +1,24 @@
+{
+  "BTC": [
+    "ATR_Trailing",
+    "smc_swing",
+    "btc_momentum",
+    "custom_1781159562203_2",
+    "EMA20_Pullback",
+    "HTF_ICT_Intraday"
+  ],
+  "ETH": [
+    "ATR_Trailing",
+    "eth_momentum",
+    "smc_swing",
+    "custom_1781159562192_0",
+    "EMA20_Pullback",
+    "HTF_ICT_Intraday"
+  ],
+  "Gold": [
+    "h4_break_retest",
+    "custom_1781159562198_1",
+    "custom_1781159562208_3",
+    "custom_1781159562213_4"
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "assets": {
+    "BTCUSDT": {
+      "total_resolved": 6,
+      "win_rate": 0.167,
+      "loss_streak": 0,
+      "threshold": 6,
+      "confluence_rates": {},
+      "best_combos": {},
+      "session_perf": {
+        "Asia": {
+          "win_rate": 0.333,
+          "total": 3
+        },
+        "London": {
+          "win_rate": 0.0,
+          "total": 2
+        }
+      },
+      "timeframe_perf": {
+        "Intraday": {
+          "win_rate": 0.0,
+          "total": 5
+        }
+      },
+      "geo_perf": {
+        "Strongly Bullish": {
+          "win_rate": 0.0,
+          "total": 2
+        },
+        "Bullish": {
+          "win_rate": 0.333,
+          "total": 3
+        }
+      },
+      "direction_perf": {
+        "SELL": {
+          "win_rate": 0.25,
+          "total": 4
+        }
+      },
+      "score_correlation": {
+        "8": {
+          "win_rate": 0.0,
+          "total": 4
+        }
+      },
+      "last_updated": "2026-06-11 18:50 UTC"
+    },
+    "ETHUSDT": {
+      "total_resolved": 2,
+      "win_rate": 0.5,
+      "loss_streak": 1,
+      "threshold": 6,
+      "confluence_rates": {},
+      "best_combos": {},
+      "session_perf": {
+        "New York": {
+          "win_rate": 0.5,
+          "total": 2
+        }
+      },
+      "timeframe_perf": {
+        "Intraday": {
+          "win_rate": 0.5,
+          "total": 2
+        }
+      },
+      "geo_perf": {
+        "Strongly Bullish": {
+          "win_rate": 0.5,
+          "total": 2
+        }
+      },
+      "direction_perf": {},
+      "score_correlation": {},
+      "last_updated": "2026-06-11 18:50 UTC"
+    }
+  },
+  "global_win_rate": 0.25,
+  "total_resolved": 8,
+  "last_updated": "2026-06-11 18:50 UTC",
+  "best_session": "New York",
+  "best_combos": {
+    "15m structure break + Displacement candle": {
+      "win_rate": 0.667,
+      "total": 3
+    },
+    "15m structure break + Fair value gap displacement": {
+      "win_rate": 0.667,
+      "total": 3
+    },
+    "15m structure break + Liquidity sweep": {
+      "win_rate": 0.667,
+      "total": 3
+    },
+    "Displacement candle + Fair value gap displacement": {
+      "win_rate": 0.667,
+      "total": 3
+    },
+    "Displacement candle + Liquidity sweep": {
+      "win_rate": 0.667,
+      "total": 3
+    },
+    "Fair value gap displacement + Liquidity sweep": {
+      "win_rate": 0.667,
+      "total": 3
+    }
+  },
+  "direction_blocks": {}
+}

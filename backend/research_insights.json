@@ -1,0 +1,45 @@
+{
+  "insights": {
+    "BTCUSDT": {
+      "bullish_signals": [],
+      "bearish_signals": [],
+      "macro_context": []
+    },
+    "ETHUSDT": {
+      "bullish_signals": [],
+      "bearish_signals": [],
+      "macro_context": []
+    },
+    "XAUUSD": {
+      "bullish_signals": [],
+      "bearish_signals": [],
+      "macro_context": []
+    },
+    "global": {
+      "bullish_signals": [],
+      "bearish_signals": [
+        "directv to acquire echostar\u2019s video distribution business including dish tv and"
+      ],
+      "macro_context": [
+        "u.s. productivity slows down in fourth quarter while unit labor costs accelerate",
+        "arcbest misses profit expectations, as soft rate environment weighed on revenue"
+      ]
+    }
+  },
+  "biases": {
+    "BTCUSDT": {
+      "label": "Neutral",
+      "score": -1
+    },
+    "ETHUSDT": {
+      "label": "Neutral",
+      "score": -1
+    },
+    "XAUUSD": {
+      "label": "Neutral",
+      "score": -1
+    }
+  },
+  "fetched_at": "2026-06-09 14:10 UTC",
+  "total_headlines": 30
+}

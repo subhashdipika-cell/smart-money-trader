@@ -1,0 +1,207 @@
+{
+  "strategies": [
+    {
+      "name": "ETH EMA Rider (Trend)",
+      "asset": "ETH",
+      "timeframe": "1h",
+      "direction": "both",
+      "conditions": [
+        {
+          "type": "ema_cross",
+          "fast": 9,
+          "slow": 21
+        },
+        {
+          "type": "price_vs_ma",
+          "period": 200,
+          "ma": "ema"
+        }
+      ],
+      "exit_conditions": [
+        {
+          "type": "ema_cross",
+          "fast": 9,
+          "slow": 21
+        }
+      ],
+      "risk": {
+        "sl_type": "atr",
+        "sl_value": 1.5,
+        "rr_ratio": 2,
+        "use_tp": false
+      },
+      "id": "custom_1781159562192_0"
+    },
+    {
+      "name": "Gold MACD Trend RR3",
+      "asset": "Gold",
+      "timeframe": "1h",
+      "direction": "both",
+      "conditions": [
+        {
+          "type": "macd_cross"
+        },
+        {
+          "type": "price_vs_ma",
+          "period": 200,
+          "ma": "ema"
+        }
+      ],
+      "exit_conditions": [],
+      "risk": {
+        "sl_type": "atr",
+        "sl_value": 1.5,
+        "rr_ratio": 3,
+        "use_tp": true
+      },
+      "id": "custom_1781159562198_1"
+    },
+    {
+      "name": "BTC BOS Trend",
+      "asset": "BTC",
+      "timeframe": "1h",
+      "direction": "both",
+      "conditions": [
+        {
+          "type": "bos",
+          "swing": 3
+        },
+        {
+          "type": "price_vs_ma",
+          "period": 50,
+          "ma": "ema"
+        }
+      ],
+      "exit_conditions": [],
+      "risk": {
+        "sl_type": "atr",
+        "sl_value": 1.5,
+        "rr_ratio": 2,
+        "use_tp": true
+      },
+      "id": "custom_1781159562203_2"
+    },
+    {
+      "name": "Gold London Sweep RR3",
+      "asset": "Gold",
+      "timeframe": "1h",
+      "direction": "both",
+      "conditions": [
+        {
+          "type": "liquidity_sweep"
+        },
+        {
+          "type": "session",
+          "session": "london"
+        }
+      ],
+      "exit_conditions": [],
+      "risk": {
+        "sl_type": "atr",
+        "sl_value": 1.5,
+        "rr_ratio": 3,
+        "use_tp": true
+      },
+      "id": "custom_1781159562208_3"
+    },
+    {
+      "name": "Gold EMA Rider (Trend)",
+      "asset": "Gold",
+      "timeframe": "1h",
+      "direction": "both",
+      "conditions": [
+        {
+          "type": "ema_cross",
+          "fast": 9,
+          "slow": 21
+        },
+        {
+          "type": "price_vs_ma",
+          "period": 200,
+          "ma": "ema"
+        }
+      ],
+      "exit_conditions": [
+        {
+          "type": "ema_cross",
+          "fast": 9,
+          "slow": 21
+        }
+      ],
+      "risk": {
+        "sl_type": "atr",
+        "sl_value": 1.5,
+        "rr_ratio": 2,
+        "use_tp": false
+      },
+      "id": "custom_1781159562213_4"
+    }
+  ],
+  "results": {
+    "custom_1781159562192_0": {
+      "summary": {
+        "total_trades": 87,
+        "win_rate": 31,
+        "profit_factor": 1.94,
+        "net_points": 1383.68,
+        "max_drawdown": 363.42,
+        "days": 180,
+        "asset": "ETH",
+        "timeframe": "1h"
+      },
+      "ran_at": "2026-06-11 06:32 UTC"
+    },
+    "custom_1781159562198_1": {
+      "summary": {
+        "total_trades": 74,
+        "win_rate": 35.1,
+        "profit_factor": 1.74,
+        "net_points": 1178.14,
+        "max_drawdown": 272.79,
+        "days": 180,
+        "asset": "Gold",
+        "timeframe": "1h"
+      },
+      "ran_at": "2026-06-11 06:32 UTC"
+    },
+    "custom_1781159562203_2": {
+      "summary": {
+        "total_trades": 103,
+        "win_rate": 43.7,
+        "profit_factor": 1.62,
+        "net_points": 25144.98,
+        "max_drawdown": 5502.67,
+        "days": 180,
+        "asset": "BTC",
+        "timeframe": "1h"
+      },
+      "ran_at": "2026-06-11 06:32 UTC"
+    },
+    "custom_1781159562208_3": {
+      "summary": {
+        "total_trades": 53,
+        "win_rate": 30.2,
+        "profit_factor": 1.57,
+        "net_points": 572.62,
+        "max_drawdown": 263.24,
+        "days": 365,
+        "asset": "Gold",
+        "timeframe": "1h"
+      },
+      "ran_at": "2026-06-11 06:32 UTC"
+    },
+    "custom_1781159562213_4": {
+      "summary": {
+        "total_trades": 60,
+        "win_rate": 33.3,
+        "profit_factor": 1.48,
+        "net_points": 551.53,
+        "max_drawdown": 523.99,
+        "days": 180,
+        "asset": "Gold",
+        "timeframe": "1h"
+      },
+      "ran_at": "2026-06-11 06:32 UTC"
+    }
+  }
+}

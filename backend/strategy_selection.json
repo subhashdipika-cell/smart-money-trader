@@ -1,0 +1,50 @@
+{
+  "month": "2026-05",
+  "generated_at": "2026-05-31 23:58 IST",
+  "strategies": [
+    {
+      "strategy": "ICT_Scalping",
+      "total": 1,
+      "wins": 1,
+      "losses": 0,
+      "win_rate": 1.0,
+      "avg_rr": 2.4,
+      "score": 2.4,
+      "total_pts": 12.0,
+      "BP": 0,
+      "SP": 1,
+      "SL": 0,
+      "BL": 0
+    },
+    {
+      "strategy": "EMA_Intraday",
+      "total": 3,
+      "wins": 0,
+      "losses": 3,
+      "win_rate": 0.0,
+      "avg_rr": 0,
+      "score": 0.0,
+      "total_pts": -614.0,
+      "BP": 0,
+      "SP": 0,
+      "SL": 3,
+      "BL": 0
+    }
+  ],
+  "best_strategy": {
+    "strategy": "ICT_Scalping",
+    "total": 1,
+    "wins": 1,
+    "losses": 0,
+    "win_rate": 1.0,
+    "avg_rr": 2.4,
+    "score": 2.4,
+    "total_pts": 12.0,
+    "BP": 0,
+    "SP": 1,
+    "SL": 0,
+    "BL": 0
+  },
+  "total_bl": 0,
+  "recommendation": "\u2705 ICT_Scalping is performing well \u2014 continue with current settings"
+}

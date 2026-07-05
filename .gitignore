@@ -1,0 +1,37 @@
+# ── deps / envs ──────────────────────────────────────
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+dist/
+*.log
+.env
+.env.*
+!.env.example
+
+# ── SECRETS — never commit ───────────────────────────
+backend/mt4_config.json
+backend/app_settings.json
+backend/gold_feed_config.json
+backend/license.json
+
+# ── build artifacts / installers ─────────────────────
+installer/runtime/
+installer_output/
+*.exe
+
+# ── runtime state / churning operational data ────────
+backend/signals_log.json
+backend/signal_state.json
+backend/trader_journal.json
+backend/manual_journal.json
+backend/mt5_trades.json
+backend/mt5_trades_demo.json
+backend/notified_closed.json
+backend/daily_signal_counts.json
+backend/daily_events.json
+
+# ── bundled installer payloads (wheels, embedded python, prebuilt dist) ──
+wheels/
+build_assets/
+frontend/dist_selfcontained/
