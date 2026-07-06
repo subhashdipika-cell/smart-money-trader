@@ -272,6 +272,19 @@ def _compute_conviction(signal, chart_obs, geo_bias, sentiment, knowledge, symbo
         conviction -= 1
         warnings.append(f"Low RR ({rr}:1) — Rule 3 requires 2.5+")
 
+    # 11. Obsidian vault evidence — cross-app broker-realized results from the
+    #     shared Trading_Mind vault (see vault_reader). Small, capped nudge:
+    #     recent realized losing months across the apps argue for caution,
+    #     strong realized months argue mild confidence. Fails soft.
+    try:
+        from app.services.vault_reader import conviction_adjustment
+        v_adj, v_reasons, v_warnings = conviction_adjustment()
+        conviction += v_adj
+        reasons.extend(v_reasons)
+        warnings.extend(v_warnings)
+    except Exception:
+        pass
+
     conviction = max(0, min(10, conviction))
 
     return {
@@ -322,6 +335,15 @@ def think(symbol, signal, chart_obs, sentiment, geo_headlines=None):
 
     conviction = _compute_conviction(signal, chart_obs, geo_bias, sentiment, knowledge, symbol)
     narrative  = _build_narrative(symbol, chart_obs, geo_bias, sentiment, knowledge, signal)
+    # Append the vault (Trading_Mind) evidence so every journal entry shows
+    # what the shared brain knew when this signal was judged. Fails soft.
+    try:
+        from app.services.vault_reader import narrative_block
+        vb = narrative_block()
+        if vb:
+            narrative += "\n" + vb
+    except Exception:
+        pass
 
     # Brain approves if conviction >= 4 (Moderate or Strong)
     approved   = conviction["score"] >= 4
