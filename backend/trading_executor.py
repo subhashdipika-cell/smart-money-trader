@@ -608,7 +608,10 @@ def _live(signal, sym_mt5, direction, entry, sl, tp, lot, mode):
             "tp":           round(tp, 2),
             "deviation":    30,
             "magic":        20260101,
-            "comment":      "SMT_1H_FVG",
+            # Stamp the ACTUAL setup into the comment (was hardcoded
+            # "SMT_1H_FVG" for every strategy, which corrupted MT5-side
+            # attribution — audits grouped all live trades under 1H FVG).
+            "comment":      ("SMT " + setup)[:31],
             "type_time":    mt5_lib.ORDER_TIME_SPECIFIED,  # native MT5 expiry
             "expiration":   expiry_ts,                      # UNIX timestamp — MT5 deletes automatically
             "type_filling": mt5_lib.ORDER_FILLING_IOC,
