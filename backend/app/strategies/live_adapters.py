@@ -604,3 +604,71 @@ def generate_h4_break_retest_signal(
         "confluences":   confluences,
         "setup":         f"H4 Break-and-Retest ({zone_dir.upper()})",
     }]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. Gold M5 Pullback Scalp — trend-aligned pullback to EMA9 on 5-minute gold.
+#    Backtest (13d M5, net of RawECN cost): PF ~1.7, WR ~57%, ~5 setups/day.
+#    Targets are ATR-scaled (gold needs ~$6-9 to clear spread; tighter loses).
+# ─────────────────────────────────────────────────────────────────────────────
+
+def generate_gold_m5_pullback_signal(data: dict, symbol: str = "XAUUSD") -> list:
+    """
+    Trend filter : EMA9 > EMA21 AND close > EMA50  (long; inverse for short)
+    Entry trigger: price dips to touch EMA9 and closes back the trend way,
+                   with RSI14 not yet extended (<55 long / >45 short).
+    SL = 1.2 x ATR(14), TP = 1.8 x ATR(14). Evaluated on the last CLOSED M5 bar.
+    """
+    df = data.get("5m")
+    if df is None or len(df) < 60:
+        return []
+
+    df = df.copy()
+    closes = df["close"].astype(float)
+    highs  = df["high"].astype(float)
+    lows   = df["low"].astype(float)
+    e9  = _ema(closes, 9)
+    e21 = _ema(closes, 21)
+    e50 = _ema(closes, 50)
+    rsi = _rsi(closes, 14)
+    atr = _atr(df, 14)
+
+    i = len(df) - 2                      # last CLOSED bar (skip the forming one)
+    if i < 55:
+        return []
+    c   = float(closes.iloc[i]); h = float(highs.iloc[i]); l = float(lows.iloc[i])
+    E9  = float(e9.iloc[i]);  E21 = float(e21.iloc[i]); E50 = float(e50.iloc[i])
+    R   = float(rsi.iloc[i]);  A  = float(atr.iloc[i])
+    if A <= 0:
+        return []
+
+    up   = E9 > E21 and c > E50
+    down = E9 < E21 and c < E50
+    sl_dist = 1.2 * A
+    tp_dist = 1.8 * A
+    sig = None
+
+    if up and l <= E9 and c > E9 and R < 55:
+        sig = ("BUY",  round(c, 2), round(c - sl_dist, 2), round(c + tp_dist, 2))
+        conf = ["M5 uptrend (EMA9>EMA21, close>EMA50)", "Pullback to EMA9", f"ATR ${A:.2f} — SL 1.2x / TP 1.8x"]
+    elif down and h >= E9 and c < E9 and R > 45:
+        sig = ("SELL", round(c, 2), round(c + sl_dist, 2), round(c - tp_dist, 2))
+        conf = ["M5 downtrend (EMA9<EMA21, close<EMA50)", "Pullback to EMA9", f"ATR ${A:.2f} — SL 1.2x / TP 1.8x"]
+
+    if sig is None:
+        return []
+
+    return [{
+        "signal":        sig[0],
+        "entry":         sig[1],
+        "sl":            sig[2],
+        "tp":            sig[3],
+        "rr":            1.5,
+        "timeframe":     "5m",
+        "quality_score": 7,
+        "raw_score":     7,
+        "confidence":    "High",
+        "strategy_tag":  "gold_m5_pullback",
+        "confluences":   conf,
+        "setup":         "Gold M5 Pullback Scalp",
+    }]

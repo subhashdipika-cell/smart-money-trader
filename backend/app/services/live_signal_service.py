@@ -148,6 +148,12 @@ LIVE_STRATEGIES = {
         "assets":  ["Gold"],
         "live":    True,   # ✅ live signal adapter active
     },
+    "gold_m5_pullback": {
+        "label":   "Gold M5 Pullback Scalp",
+        "desc":    "M5 trend-aligned pullback to EMA9 (EMA9>21, close>EMA50), ATR-scaled SL 1.2× / TP 1.8×. Backtest PF~1.7, ~5 setups/day. Forward-testing on demo.",
+        "assets":  ["Gold"],
+        "live":    True,   # ✅ live signal adapter active
+    },
     # ── SMC / ICT Swing (BTC & ETH) ──────────────────────────────────────────
     "smc_swing": {
         "label":   "SMC Liquidity Sweep",
@@ -325,6 +331,16 @@ def _run_one_strategy(strategy_id: str, symbol: str, data: dict) -> list:
             return sigs
         except Exception as exc:
             print(f"[{symbol}] H4 Break-and-Retest live error: {exc}")
+            return []
+
+    if strategy_id == "gold_m5_pullback":
+        try:
+            from app.strategies.live_adapters import generate_gold_m5_pullback_signal
+            sigs = generate_gold_m5_pullback_signal(data, symbol=symbol)
+            print(f"[{symbol}] Gold M5 Pullback Scalp: {len(sigs)} signal(s)")
+            return sigs
+        except Exception as exc:
+            print(f"[{symbol}] Gold M5 Pullback live error: {exc}")
             return []
 
     # Default: HTF_ICT_Intraday
