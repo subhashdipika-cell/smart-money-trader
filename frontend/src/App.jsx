@@ -617,20 +617,6 @@ function App() {
             </div>
           </div>
 
-          {/* Account button */}
-          <button
-            type="button"
-            onClick={() => { setSetupForm(account || DEFAULT_SETUP); setAccount(null) }}
-            style={{
-              padding: "7px 11px", borderRadius: "8px", border: "1px solid #1a3a5c",
-              background: "linear-gradient(135deg, #1a3a5c, #0d2d4a)",
-              color: "#4dabf7", fontWeight: 600, fontSize: "13px",
-              cursor: "pointer", transition: "all 0.15s"
-            }}
-          >
-            ⚙️ Account
-          </button>
-
           {/* Engine status */}
           <div style={{
             display: "flex", alignItems: "center", gap: "6px",
