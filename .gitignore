@@ -35,3 +35,6 @@ backend/daily_events.json
 wheels/
 build_assets/
 frontend/dist_selfcontained/
+
+# MT5 market-data cache (runtime, churns every run)
+backend/mt5_cache/
