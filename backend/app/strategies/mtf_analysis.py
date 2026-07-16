@@ -11,6 +11,7 @@ Strategy rules:
 """
 
 from app.strategies.htf_signal_generator import generate_htf_signals
+from app.strategies.level_engine import apply_human_touch
 
 
 def analyze_multi_timeframe(data, symbol='', scan_all=False, rr_ratio=None):
@@ -27,6 +28,23 @@ def analyze_multi_timeframe(data, symbol='', scan_all=False, rr_ratio=None):
         return []
 
     signals = generate_htf_signals(htf_df, symbol=symbol, rr_ratio=rr_ratio, scan_all=scan_all)
+
+    # ── Context awareness ("human touch") — live signals only ────────────────
+    # Level map (swings + prev-day H/L + rounds) → skip stale/chasing setups,
+    # skip entries into a barrier, and cap the TP just before the next wall.
+    # Backtests (scan_all=True) are left untouched — historical signals would
+    # need an as-of-then map, and the baseline must stay comparable.
+    if signals and not scan_all:
+        kept = []
+        for s in signals:
+            try:
+                s, skip = apply_human_touch(s, htf_df, symbol)
+            except Exception as e:
+                print(f"[LEVELS/{symbol}] check failed (signal passed through): {e}")
+                skip = False
+            if not skip:
+                kept.append(s)
+        signals = kept
 
     if signals:
         for s in signals:
