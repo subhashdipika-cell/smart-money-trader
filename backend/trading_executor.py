@@ -42,6 +42,15 @@ def _notify_trade(event, info):
                    f"SL: {info.get('sl')}   TP: {info.get('tp')}\n"
                    f"Lot: {info.get('lot')}"
                    + (f"\n#{info.get('ticket')}" if info.get("ticket") else ""))
+            # Level-engine context ("human touch") — shows the structure reasoning.
+            st = info.get("structure") or {}
+            bits = []
+            if st.get("rr_structure") is not None:
+                bits.append(f"room {st['rr_structure']}R to {st.get('barrier')}")
+            if st.get("tp_capped"):
+                bits.append("TP capped to structure")
+            if bits:
+                msg += "\n🧭 " + " · ".join(bits)
         else:
             pnl = info.get("realized_usd")
             # Spell out PROFIT / LOSS with a signed $ amount — no ambiguity.
@@ -539,7 +548,8 @@ def execute_signal(signal):
     # and only for real MT5 trades (demo/live) — paper is simulated.
     if res.get("success") and mode in ("demo", "live"):
         _notify_trade("opened", {"symbol": sym_mt5, "direction": direction, "entry": entry,
-                                 "sl": sl, "tp": tp, "lot": lot, "mode": mode, "ticket": res.get("ticket")})
+                                 "sl": sl, "tp": tp, "lot": lot, "mode": mode, "ticket": res.get("ticket"),
+                                 "structure": signal.get("structure")})
     return res
 
 def _paper(signal, sym_mt5, direction, entry, sl, tp, lot):

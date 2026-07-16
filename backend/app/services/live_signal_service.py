@@ -1168,6 +1168,17 @@ def check_symbol(symbol, sentiment, state):
   Activates at: {trail_cfg.get('activate_at')} (+1R)
   Trails at 50% of gain"""
 
+        # Level-engine context ("human touch") — room to structure / freshness.
+        struct = latest.get("structure") or {}
+        struct_bits = []
+        if struct.get("rr_structure") is not None:
+            struct_bits.append(f"Room {struct['rr_structure']}R to {struct.get('barrier')}")
+        if struct.get("tp_capped"):
+            struct_bits.append("TP capped to structure")
+        if struct.get("extension") is not None:
+            struct_bits.append(f"Freshness {struct['extension']:+.1f}xATR")
+        struct_text = ("\n🧭 Structure: " + " · ".join(struct_bits)) if struct_bits else ""
+
         message = f"""
 ⚡ TRADE SIGNAL — Smart Money Trader
 
@@ -1184,7 +1195,7 @@ def check_symbol(symbol, sentiment, state):
 📈 RR:     {latest["rr"]}{entries_text}{trail_text}
 
 ✅ Setup: {latest.get("setup", "ICT")}
-✅ Confluences: {", ".join(latest.get("confluences", []))}{htf_line}{geo_note}
+✅ Confluences: {", ".join(latest.get("confluences", []))}{htf_line}{geo_note}{struct_text}
 
 📋 Analysis:
 {narrative[:350] if narrative else "—"}
@@ -1210,7 +1221,8 @@ def check_symbol(symbol, sentiment, state):
                         "sl":      latest["sl"],
                         "tp":      latest["tp"],
                         "rr":      latest["rr"],
-                        "setup":   latest.get("setup") or latest.get("strategy_tag") or "unlabeled"
+                        "setup":   latest.get("setup") or latest.get("strategy_tag") or "unlabeled",
+                        "structure": latest.get("structure"),  # level-engine context for the open alert
                     }
                     label = {"paper": "Paper", "demo": "Demo Live", "live": "Real Live"}.get(mode, mode)
                     result = _mt4_execute(mt4_signal)
