@@ -1292,6 +1292,19 @@ def start_live_signal_engine():
         print(f"\n[Resolver] Checking open signal outcomes...")
         resolve_open_outcomes()
 
+        # ── Reconcile pending orders past their expiry ───────────────────────
+        # MT5 auto-deletes ORDER_TIME_SPECIFIED pendings, but only while the
+        # terminal is running, and nothing ever wrote the result back to our
+        # store — the 2026-07-19 audit found 82 of 85 records stuck at
+        # status="open" (median 20 days old). Cancels genuine terminal-outage
+        # survivors and fixes the bookkeeping either way.
+        if _MT4_AVAILABLE:
+            try:
+                from trading_executor import expire_stale_pending
+                expire_stale_pending()
+            except Exception as exc:
+                print(f"[Resolver] expiry reconcile skipped: {exc}")
+
         # ── Full signal check every 15 minutes ───────────────────────────────
         if now - last_full_cycle >= CHECK_INTERVAL:
             last_full_cycle = now

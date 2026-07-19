@@ -286,6 +286,70 @@ def _save_trades(t, mode: str = None):
     with open(_trades_file(mode), "w") as f:
         json.dump(t, f, indent=2)
 
+def expire_stale_pending(mode: str = None) -> dict:
+    """Reconcile pending LIMIT orders whose expiry has passed. Idempotent.
+
+    Two things drift apart here, and the 2026-07-19 audit found both:
+
+      1. The LOCAL store desyncs. Orders are placed with MT5's
+         ORDER_TIME_SPECIFIED, so the broker deletes them on time, but nothing
+         ever wrote that back — 82 of 85 records still said status="open" with
+         a median age of 20 days (oldest 38). That corrupts every stat built
+         from this file and hides real exposure.
+      2. Genuinely orphaned orders CAN exist. MT5 only auto-deletes while the
+         terminal is running; anything placed before a terminal outage can
+         survive its expiry. A weeks-old limit order filling on an unrelated
+         spike is a live-risk bug, not a bookkeeping one.
+
+    So: sweep MT5 for OUR (magic-filtered) expired pendings and remove them,
+    then mark the local records. Never touches AlphaEdge's or other apps'
+    orders on the shared terminal.
+    """
+    now = int(time.time())
+    trades = _load_trades(mode)
+    stale = [
+        t for t in trades
+        if t.get("status") == "open"
+        and t.get("order_type") == "limit"
+        and t.get("expiry_ts")
+        and int(t["expiry_ts"]) < now
+    ]
+    if not stale:
+        return {"cancelled": [], "reconciled": 0}
+
+    # Cancel any that are somehow still live at the broker (terminal-outage
+    # survivors). Best-effort: bookkeeping still gets fixed if MT5 is down.
+    cancelled = []
+    try:
+        mt5c, _ = _connect()
+        if mt5c is not None:
+            import MetaTrader5 as mt5_lib
+            live_tickets = {
+                o.ticket for o in (mt5_lib.orders_get() or [])
+                if o.magic in SMT_MAGICS
+            }
+            for t in stale:
+                tk = t.get("ticket")
+                if tk in live_tickets:
+                    r = mt5_lib.order_send(
+                        {"action": mt5_lib.TRADE_ACTION_REMOVE, "order": tk}
+                    )
+                    ok = r is not None and r.retcode == mt5_lib.TRADE_RETCODE_DONE
+                    print(f"[MT5] {'OK' if ok else 'FAIL'} expired-pending cancel #{tk}")
+                    if ok:
+                        cancelled.append(tk)
+    except Exception as exc:
+        print(f"[MT5] expired-pending sweep skipped: {exc}")
+
+    for t in stale:
+        t["status"] = "expired"
+        t["closed_reason"] = "expiry_reconcile"
+    _save_trades(trades, mode)
+    print(f"[MT5] Expiry reconcile: {len(stale)} stale pending marked expired, "
+          f"{len(cancelled)} cancelled at broker.")
+    return {"cancelled": cancelled, "reconciled": len(stale)}
+
+
 def load_all_trades():
     """Load trades from ALL modes combined — used by History page."""
     combined = []
@@ -320,11 +384,17 @@ def _connect():
 
         if not _mt5_initialized:
             # Pin to this app's Vantage terminal so it never grabs IntelliTrade's terminal.
-            if not mt5.initialize(path=r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe"):
+            # timeout: without it initialize() blocks ~60s when the terminal is
+            # unreachable (weekend/disconnected), which stalled every caller.
+            if not mt5.initialize(
+                path=r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe",
+                timeout=10000,
+            ):
                 err = mt5.last_error()
                 print(f"[MT5] initialize() failed: {err}")
                 if err[0] == -10005:
-                    print("[MT5] → Open MT5 terminal and login first")
+                    # ASCII only - a unicode arrow here crashes the cp1252 console.
+                    print("[MT5] -> Open MT5 terminal and login first (or market is closed/weekend)")
                 return None, None
             _mt5_initialized = True
 

@@ -4,15 +4,13 @@
     "smc_swing",
     "btc_momentum",
     "custom_1781159562203_2",
-    "EMA20_Pullback",
-    "HTF_ICT_Intraday"
+    "EMA20_Pullback"
   ],
   "ETH": [
     "ATR_Trailing",
     "eth_momentum",
     "smc_swing",
-    "EMA20_Pullback",
-    "HTF_ICT_Intraday"
+    "EMA20_Pullback"
   ],
   "Gold": [
     "h4_break_retest",
