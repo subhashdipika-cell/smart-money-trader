@@ -38,3 +38,6 @@ frontend/dist_selfcontained/
 
 # MT5 market-data cache (runtime, churns every run)
 backend/mt5_cache/
+
+# session_backtest candle cache (regenerable)
+backend/tools/_cache/
