@@ -194,8 +194,8 @@ SMT_MAGICS = {20260101, 202609}       # only OUR trades — the terminal is shar
 
 def _gold_friday_state():
     """(block_new, flatten) for the Friday gold cutoff, in IST."""
-    from datetime import datetime, timezone, timedelta
-    ist = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=5, minutes=30)))
+    from app.services.clock import now_ist as _now_ist
+    ist = _now_ist()
     if ist.weekday() != 4:   # Friday only
         return False, False
     mins = ist.hour * 60 + ist.minute
@@ -457,8 +457,8 @@ def load_all_trades():
     return combined
 
 def _ist():
-    return (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
-            ).strftime("%Y-%m-%d %H:%M IST")
+    from app.services.clock import now_ist as _now_ist
+    return _now_ist().strftime("%Y-%m-%d %H:%M IST")
 
 # ── MT5 connection (NO login, NO shutdown) ───────────────────────────────────
 

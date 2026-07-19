@@ -27,7 +27,7 @@ from pathlib import Path
 VAULT_TRADES = Path(r"E:\Obsidian\Trading_Mind\raw\trades")
 TRADE_REVIEW = Path(r"E:\Obsidian\Trading_Mind\wiki\psychology\trade-review.md")
 
-IST = timezone(timedelta(hours=5, minutes=30))
+from app.services.clock import IST   # canonical; see clock.py
 _CACHE: dict = {"day": None, "ctx": None}
 
 _FM_KEYS = ("trades", "wins", "losses", "win_rate", "net_r",

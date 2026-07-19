@@ -49,8 +49,7 @@ def is_market_open():
     Returns True only during NSE trading hours on weekdays.
     9:15 AM – 3:30 PM IST (UTC+5:30), Monday–Friday.
     """
-    ist_offset = timedelta(hours=5, minutes=30)
-    now_ist    = datetime.now(timezone.utc) + ist_offset
+    now_ist    = _clock_now_ist()
     weekday    = now_ist.weekday()   # 0=Mon … 6=Sun
 
     if weekday >= 5:   # Saturday or Sunday
@@ -63,8 +62,7 @@ def is_market_open():
 
 
 def market_status_message():
-    ist_offset = timedelta(hours=5, minutes=30)
-    now_ist    = datetime.now(timezone.utc) + ist_offset
+    now_ist    = _clock_now_ist()
     return (
         f"NSE market is closed. "
         f"Current IST: {now_ist.strftime('%A %H:%M')}. "

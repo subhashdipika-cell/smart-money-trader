@@ -554,16 +554,18 @@ def run_scalper_backtest(df_m1, symbol: str = "BTCUSD",
 
             if outcome:
                 pts = (exit_px - entry_px) if direction == "BUY" else (entry_px - exit_px)
-                from datetime import datetime, timezone, timedelta
-                def _fmt(ts):
+                from app.services.clock import ist_str
+                def _ms(ts):
+                    """Raw UTC epoch ms — `date` is an IST display string and
+                    must never be parsed for time bucketing."""
                     try:
-                        ms = int(ts) if int(ts) > 1e12 else int(ts) * 1000
-                        return (datetime.fromtimestamp(ms/1000, tz=timezone.utc)
-                                + timedelta(hours=5,minutes=30)).strftime("%Y-%m-%d %H:%M")
-                    except Exception:
-                        return "—"
+                        v = int(ts)
+                        return v if v > 1e12 else v * 1000
+                    except (TypeError, ValueError):
+                        return None
 
                 trades.append({
+                    "entry_ts":     _ms(entry_ts),
                     "signal":       direction,
                     "entry":        round(entry_px, 5),
                     "sl":           round(sl_px, 5),
@@ -574,7 +576,7 @@ def run_scalper_backtest(df_m1, symbol: str = "BTCUSD",
                     "points":       round(pts, 5),
                     "bars_held":    bars_held,
                     "timeout":      outcome == "TIMEOUT",
-                    "date":         _fmt(entry_ts),
+                    "date":         ist_str(entry_ts),   # IST, display only
                     "strategy":     "BB_RSI_Scalper",
                     "quality_score": 7,
                 })

@@ -15,6 +15,7 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
+from app.services.clock import now_ist, to_ist
 
 _BASE             = os.path.join(os.path.dirname(__file__), "..", "..")
 EVENTS_FILE       = os.path.abspath(os.path.join(_BASE, "daily_events.json"))
@@ -40,7 +41,7 @@ FF_RSS_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.xml"
 
 
 def _ist_now():
-    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    return now_ist()
 
 
 def _parse_ff_xml(raw_xml):
@@ -68,7 +69,7 @@ def _parse_ff_xml(raw_xml):
                 for fmt in ["%m-%d-%Y %I:%M%p", "%m-%d-%Y %I:%M %p", "%Y-%m-%d %H:%M"]:
                     try:
                         dt_utc  = datetime.strptime(dt_str, fmt).replace(tzinfo=timezone.utc)
-                        dt_ist  = dt_utc + timedelta(hours=5, minutes=30)
+                        dt_ist  = to_ist(dt_utc)
                         if dt_ist.date() == today_ist:
                             title_lower = title.lower()
                             is_high = any(k in title_lower for k in HIGH_IMPACT_KEYWORDS)
@@ -210,7 +211,7 @@ def add_headline_event(title, time_ist_str=None):
             "title":          title,
             "country":        "US",
             "impact":         "high",
-            "time_utc":       (now_ist - timedelta(hours=5, minutes=30)).strftime("%H:%M"),
+            "time_utc":       now_ist.astimezone(timezone.utc).strftime("%H:%M"),
             "time_ist":       time_ist_str or now_ist.strftime("%H:%M"),
             "timestamp":      int(time.time()),
             "is_high_impact": True,

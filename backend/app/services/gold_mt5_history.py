@@ -38,7 +38,7 @@ log = logging.getLogger("gold_mt5_history")
 
 MT5_GOLD_SYMBOL  = "XAUUSD+"          # Vantage Markets symbol (with plus sign)
 CACHE_TTL_HOURS  = 4                   # hours before cache is considered stale
-IST_OFFSET       = timedelta(hours=5, minutes=30)
+from app.services.clock import IST as _IST   # canonical; see clock.py
 
 # Cache directory: backend/mt5_cache/
 _CACHE_DIR = os.path.abspath(
@@ -193,7 +193,7 @@ def fetch_ohlcv(
     df["timestamp"] = times_utc.dt.tz_localize(None)
     df["timestamp_ist"] = (
         times_utc
-        .dt.tz_convert(timezone(IST_OFFSET))
+        .dt.tz_convert(_IST)
         .dt.tz_localize(None)
     )
 

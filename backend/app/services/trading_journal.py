@@ -17,6 +17,8 @@ Rule 4: Auto-generate journal review on month end
 import json
 import os
 from datetime import datetime, timezone, timedelta
+
+from app.services.clock import now_ist, to_ist
 from collections import defaultdict
 
 _BASE          = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -35,7 +37,7 @@ DAILY_LOSS_CAP_PCT = 0.05   # 5% of capital
 
 
 def _ist_now():
-    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    return now_ist()
 
 
 def _load_journal():
@@ -206,7 +208,7 @@ def check_daily_loss_cap(risk_usd):
             continue
         ts = s.get("timestamp", 0)
         try:
-            ts_ist = datetime.fromtimestamp(int(ts)/1000, tz=timezone.utc) + timedelta(hours=5,minutes=30)
+            ts_ist = to_ist(int(ts))
             if ts_ist.strftime("%Y-%m-%d") != today_str:
                 continue
         except Exception:
@@ -234,7 +236,7 @@ def check_daily_loss_cap(risk_usd):
 
 def _is_today(ts):
     try:
-        ist = datetime.fromtimestamp(int(ts)/1000, tz=timezone.utc) + timedelta(hours=5,minutes=30)
+        ist = to_ist(int(ts))
         return ist.strftime("%Y-%m-%d") == _ist_now().strftime("%Y-%m-%d")
     except Exception:
         return False
@@ -280,7 +282,7 @@ def get_monthly_journal_summary(year=None, month=None):
     month_signals = []
     for s in log:
         try:
-            ts_ist = datetime.fromtimestamp(int(s["timestamp"])/1000, tz=timezone.utc) + timedelta(hours=5,minutes=30)
+            ts_ist = to_ist(int(s["timestamp"]))
             if ts_ist.year == year and ts_ist.month == month and s.get("outcome") in ("WIN","LOSS"):
                 month_signals.append(s)
         except Exception:
@@ -368,7 +370,7 @@ def _cell(v):
 def _ist(ms):
     """(datetime IST, 'YYYY-MM' key) for an epoch-ms timestamp."""
     try:
-        dt = datetime.fromtimestamp(int(ms) / 1000, tz=timezone.utc) + timedelta(hours=5, minutes=30)
+        dt = to_ist(int(ms))
         return dt, f"{dt.year}-{dt.month:02d}"
     except (TypeError, ValueError, OverflowError):
         return None, ""

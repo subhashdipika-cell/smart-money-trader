@@ -38,6 +38,8 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timezone
 
+from app.services.clock import IST
+
 # ── Ticker mapping ─────────────────────────────────────────────────────────────
 
 TICKER_MAP = {
@@ -340,9 +342,23 @@ def _fmt_ts(ts) -> str:
         t = pd.Timestamp(ts)
         if t.tzinfo is None:
             t = t.tz_localize("UTC")
-        return t.strftime("%Y-%m-%d %H:%M")
+        # IST display, matching every other engine. This used to emit UTC under
+        # the same field name as the IST-emitting engines — same key, two
+        # meanings, which silently skewed any cross-engine time analysis by 5.5h.
+        return t.tz_convert(IST).strftime("%Y-%m-%d %H:%M")
     except Exception:
         return "—"
+
+
+def _ts_ms(ts):
+    """Raw UTC epoch ms for time bucketing — never parse the display string."""
+    try:
+        t = pd.Timestamp(ts)
+        if t.tzinfo is None:
+            t = t.tz_localize("UTC")
+        return int(t.timestamp() * 1000)
+    except Exception:
+        return None
 
 
 def _make_trade(setup: dict, entry: float, sl: float, tp: float,
@@ -354,8 +370,10 @@ def _make_trade(setup: dict, entry: float, sl: float, tp: float,
         "tp":            round(tp, 2),
         "outcome":       outcome,
         "points":        round(pts, 2),
-        "date":          _fmt_ts(setup["entry_ts"]),
-        "exit_date":     _fmt_ts(exit_ts),
+        "entry_ts":      _ts_ms(setup["entry_ts"]),
+        "exit_ts":       _ts_ms(exit_ts),
+        "date":          _fmt_ts(setup["entry_ts"]),   # IST, display only
+        "exit_date":     _fmt_ts(exit_ts),             # IST, display only
         "strategy":      "SMC_Swing",
         "quality_score": 8,
         "rr_ratio":      rr_ratio,

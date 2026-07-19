@@ -27,6 +27,7 @@ from app.services.self_improvement    import load_suggestions
 from app.services.events_calendar     import load_today_events, is_high_impact_window
 from app.services.trading_journal     import get_quadrant_stats, get_monthly_journal_summary, export_monthly_to_obsidian
 from app.services.strategy_selector   import analyse_strategies
+from app.services.clock import now_ist as _clock_now_ist, ist_date, ist_str
 from app.services.geo_strategy        import get_all_asset_biases
 from app.services.sentiment_service  import get_sentiment
 from app.services.events_service     import get_market_events
@@ -1327,7 +1328,7 @@ def root(symbol: str = "BTCUSDT"):
         })
 
     # Stamp each signal with exact detection time (IST)
-    now_ist     = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    now_ist     = _clock_now_ist()
     detected_at = now_ist.strftime("%I:%M:%S %p IST")
 
     stamped_signals = []
@@ -1534,8 +1535,7 @@ def run_strategy_backtest(  # sync def → FastAPI runs it in a worker thread,
                 ts = r.get("timestamp")
                 if ts:
                     from datetime import datetime, timezone, timedelta
-                    d = (datetime.fromtimestamp(int(ts)/1000, tz=timezone.utc)
-                         + timedelta(hours=5,minutes=30)).strftime("%Y-%m-%d")
+                    d = ist_date(int(ts))
                     day_map[d]["trades"] += 1
                     if r.get("outcome") == "WIN":   day_map[d]["wins"]   += 1
                     if r.get("outcome") == "LOSS":  day_map[d]["losses"] += 1
@@ -1554,8 +1554,7 @@ def run_strategy_backtest(  # sync def → FastAPI runs it in a worker thread,
                 },
                 "days_breakdown": [{"date":k,**v,"win_rate":round(v["wins"]/v["trades"]*100,1) if v["trades"] else 0}
                                     for k,v in sorted(day_map.items())],
-                "trades": [{"date": (datetime.fromtimestamp(int(r.get("timestamp",0))/1000, tz=timezone.utc)
-                             + timedelta(hours=5,minutes=30)).strftime("%Y-%m-%d %H:%M") if r.get("timestamp") else "—",
+                "trades": [{"date": ist_str(r.get("timestamp")) if r.get("timestamp") else "—",
                             "signal": r.get("signal"), "entry": r.get("entry"),
                             "sl": r.get("sl"), "tp": r.get("tp"),
                             "outcome": r.get("outcome"), "points": r.get("points"),

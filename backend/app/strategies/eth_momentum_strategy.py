@@ -38,6 +38,8 @@ import pandas as pd
 import yfinance as yf
 from datetime import datetime, timezone
 
+from app.services.clock import IST
+
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -174,13 +176,26 @@ def _build_indicators(
 # ── Helpers ─────────────────────────────────────────────────────────────────────
 
 def _fmt_ts(ts) -> str:
+    """IST display string. Was UTC while the ATR/scalper engines emitted IST
+    under the same `date` key — one name, two meanings, 5.5h of silent skew."""
     try:
         t = pd.Timestamp(ts)
         if t.tzinfo is None:
             t = t.tz_localize("UTC")
-        return t.strftime("%Y-%m-%d %H:%M")
+        return t.tz_convert(IST).strftime("%Y-%m-%d %H:%M")
     except Exception:
         return "—"
+
+
+def _ts_ms(ts):
+    """Raw UTC epoch ms for time bucketing — never parse the display string."""
+    try:
+        t = pd.Timestamp(ts)
+        if t.tzinfo is None:
+            t = t.tz_localize("UTC")
+        return int(t.timestamp() * 1000)
+    except Exception:
+        return None
 
 
 # ── Main backtest entry point ───────────────────────────────────────────────────
@@ -336,8 +351,10 @@ def run_eth_momentum_backtest(
             "outcome":       outcome,
             "points":        pts,
             "pnl_pips":      pts,
-            "date":          _fmt_ts(entry_ts),
-            "exit_date":     _fmt_ts(exit_ts),
+            "entry_ts":      _ts_ms(entry_ts),
+            "exit_ts":       _ts_ms(exit_ts),
+            "date":          _fmt_ts(entry_ts),   # IST, display only
+            "exit_date":     _fmt_ts(exit_ts),    # IST, display only
             "rsi_at_entry":  round(rsi_v, 1),
             "macro_trend":   "BULL" if trend == 1 else "BEAR",
             "strategy":      "BTC_Momentum" if symbol.upper().startswith("BTC") else "ETH_Momentum",

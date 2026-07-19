@@ -214,27 +214,30 @@ def run_atr_trailing_backtest(
 
 def _make_trade(direction, entry, exit_price, pts, outcome, entry_ts, exit_ts,
                 regime, mult):
-    from datetime import datetime, timezone, timedelta
+    from app.services.clock import ist_str
 
-    def _fmt(ts):
+    def _ms(ts):
+        """Raw UTC epoch ms. `date` below is an IST DISPLAY string — anything
+        that buckets by time (sessions, day grouping) must use this instead."""
         if ts is None:
-            return "—"
+            return None
         try:
-            ms = int(ts) if int(ts) > 1e12 else int(ts) * 1000
-            return (datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
-                    + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d %H:%M")
-        except Exception:
-            return "—"
+            v = int(ts)
+            return v if v > 1e12 else v * 1000
+        except (TypeError, ValueError):
+            return None
 
     return {
+        "entry_ts":     _ms(entry_ts),
+        "exit_ts":      _ms(exit_ts),
         "signal":       direction,
         "entry":        round(entry, 4),
         "sl":           round(exit_price, 4),   # trailing SL at exit
         "tp":           None,                    # no fixed TP — trail handles it
         "outcome":      outcome,
         "points":       round(pts, 4),
-        "date":         _fmt(entry_ts),
-        "exit_date":    _fmt(exit_ts),
+        "date":         ist_str(entry_ts),   # IST, display only
+        "exit_date":    ist_str(exit_ts),    # IST, display only
         "regime":       regime,
         "atr_mult":     mult,
         "strategy":     "ATR_Trailing",

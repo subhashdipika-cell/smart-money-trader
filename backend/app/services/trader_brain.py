@@ -18,6 +18,7 @@ given what's happening in the world right now?"
 
 import json
 import os
+from app.services.clock import now_ist as _clock_now_ist
 from datetime import datetime, timezone, timedelta
 from app.services.strategy_learner  import load_weights
 from app.services.web_researcher    import get_research_bias
@@ -345,7 +346,7 @@ def _compute_conviction(signal, chart_obs, geo_bias, sentiment, knowledge, symbo
 # ── Journal entry ─────────────────────────────────────────────────────────────
 
 def _journal_entry(symbol, signal, narrative, conviction, outcome="PENDING"):
-    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    now_ist = _clock_now_ist()
     return {
         "timestamp":  int(datetime.now(timezone.utc).timestamp() * 1000),
         "time_ist":   now_ist.strftime("%Y-%m-%d %H:%M IST"),

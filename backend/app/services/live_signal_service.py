@@ -21,6 +21,7 @@ from app.strategies.mtf_analysis     import analyze_multi_timeframe
 from app.services.telegram_service   import send_alert
 from app.services.strategy_learner   import run_learning, load_weights
 from app.services.sessions           import session_from_ts
+from app.services.clock             import ist_date
 from app.services.sentiment_service  import get_sentiment
 from app.services.geo_strategy       import compute_geo_bias
 from app.services.web_researcher     import run_research, get_research_bias
@@ -577,7 +578,7 @@ def _already_in_log(symbol, signal_type, entry_price, cooldown_secs=None):
 
     # Today's date in IST
     from datetime import timezone, timedelta
-    today_ist = (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+    today_ist = ist_date()
 
     for s in log:
         if s.get("symbol")  != symbol:  continue
@@ -601,8 +602,7 @@ def _already_in_log(symbol, signal_type, entry_price, cooldown_secs=None):
 
         # Check 2: same day in IST (prevents restart bypass)
         try:
-            sig_day = (datetime.utcfromtimestamp(ts/1000)
-                       + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%d")
+            sig_day = ist_date(ts)
             if sig_day == today_ist and same_setup:
                 return True
         except Exception:

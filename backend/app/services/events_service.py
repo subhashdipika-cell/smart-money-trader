@@ -11,6 +11,7 @@ Filters for HIGH impact events relevant to crypto/gold:
 import urllib.request
 import json
 from datetime import datetime, timezone, timedelta
+from app.services.clock import to_ist
 
 FF_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
 
@@ -32,7 +33,7 @@ def _to_ist(utc_str):
     """Convert ForexFactory UTC datetime string to IST."""
     try:
         dt_utc = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
-        dt_ist = dt_utc + timedelta(hours=5, minutes=30)
+        dt_ist = to_ist(dt_utc)
         return dt_ist.strftime("%d %b %H:%M IST"), dt_ist
     except Exception:
         return utc_str, None

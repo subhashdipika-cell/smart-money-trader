@@ -20,6 +20,7 @@ from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
 from app.services.clean_data import load_clean_log
+from app.services.clock import now_ist
 
 _BASE           = os.path.join(os.path.dirname(__file__), "..", "..")
 LOG_FILE        = os.path.abspath(os.path.join(_BASE, "signals_log.json"))
@@ -31,7 +32,7 @@ MIN_TRADES_FOR_SELECTION = 5
 
 
 def _ist_now():
-    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    return now_ist()
 
 
 def _detect_strategy(signal):
