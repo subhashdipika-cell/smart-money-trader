@@ -286,6 +286,98 @@ def _save_trades(t, mode: str = None):
     with open(_trades_file(mode), "w") as f:
         json.dump(t, f, indent=2)
 
+def realized_for_position(position_id) -> float | None:
+    """Net realized P&L for one closed MT5 position, from its deal history.
+
+    Sums profit + commission + swap across every deal of the position, which is
+    the same definition the history-sync path uses for ``realized_usd`` — so a
+    trade closed by our own exit logic and one reconciled from MT5 history
+    report identically.
+
+    Returns None when MT5 is unreachable or the deals aren't visible yet
+    (callers must treat that as "unknown", never as zero).
+    """
+    try:
+        mt5c, _ = _connect()
+        if mt5c is None:
+            return None
+        import MetaTrader5 as mt5_lib
+
+        # MUST query by position ALONE. Passing a date range together with
+        # position= makes MT5 IGNORE the position filter and return every deal
+        # in the window — which silently yields the same account-wide total for
+        # every trade (this bug produced an identical "-792.80" for 11 unrelated
+        # trades before it was caught).
+        deals = mt5_lib.history_deals_get(position=int(position_id))
+        if not deals:
+            return None
+        total, seen = 0.0, 0
+        for d in deals:
+            # Shared terminal: only ever count OUR deals.
+            if getattr(d, "magic", 0) not in SMT_MAGICS:
+                continue
+            total += float(getattr(d, "profit", 0.0) or 0.0)
+            total += float(getattr(d, "commission", 0.0) or 0.0)
+            total += float(getattr(d, "swap", 0.0) or 0.0)
+            seen += 1
+        return round(total, 2) if seen else None
+    except Exception as exc:
+        print(f"[MT5] realized_for_position({position_id}) failed: {exc}")
+        return None
+
+
+def _record_close_pnl(ticket, exit_price=None, exit_reason=None, mode: str = None):
+    """Stamp realized P&L (+ optional exit info) onto the local trade record.
+
+    Every close path must go through here. Before 2026-07-19 the EMA20-exit and
+    manual-close paths wrote status/exit_price but NEVER any P&L, so all 11
+    closed demo trades carried profit=None — the executed-trade book was
+    unauditable and the backtest-vs-live divergence stayed invisible for two
+    months.
+    """
+    pnl = realized_for_position(ticket)
+    trades = _load_trades(mode)
+    for t in trades:
+        if str(t.get("ticket")) == str(ticket):
+            if pnl is not None:
+                t["realized_usd"] = pnl
+                t["profit"] = pnl          # legacy field kept in sync
+            if exit_price is not None:
+                t["exit_price"] = exit_price
+            if exit_reason is not None:
+                t["exit_reason"] = exit_reason
+            break
+    _save_trades(trades, mode)
+    return pnl
+
+
+def backfill_missing_pnl(mode: str = None) -> dict:
+    """One-shot repair for closed trades that never got P&L stamped.
+
+    MT5 keeps deal history, so trades closed before the fix can usually be
+    recovered. Anything older than the broker's history window stays None —
+    reported as `unresolved` rather than being silently zeroed.
+    """
+    trades = _load_trades(mode)
+    targets = [
+        t for t in trades
+        if t.get("status") == "closed" and t.get("realized_usd") is None and t.get("ticket")
+    ]
+    fixed, unresolved = 0, 0
+    for t in targets:
+        pnl = realized_for_position(t["ticket"])
+        if pnl is None:
+            unresolved += 1
+            continue
+        t["realized_usd"] = pnl
+        t["profit"] = pnl
+        fixed += 1
+    if fixed:
+        _save_trades(trades, mode)
+    print(f"[MT5] P&L backfill: {fixed} recovered, {unresolved} unresolved of {len(targets)}.")
+    return {"targets": len(targets), "fixed": fixed, "unresolved": unresolved}
+
+
 def expire_stale_pending(mode: str = None) -> dict:
     """Reconcile pending LIMIT orders whose expiry has passed. Idempotent.
 
@@ -1284,8 +1376,14 @@ def close_or_cancel_order(ticket):
                     t["mt5_state"] = "closed"
                     break
             _save_trades(trades)
-            print(f"[MT5] ✅ #{ticket} {action}")
-            return {"success": True, "ticket": ticket, "action": action}
+            pnl = None
+            if action == "closed":
+                # A cancelled PENDING order has no P&L; only a closed position does.
+                pnl = _record_close_pnl(ticket, exit_price=price,
+                                        exit_reason="Manual close")
+            print(f"[MT5] ✅ #{ticket} {action}"
+                  + (f" · realized {pnl:+.2f}" if pnl is not None else ""))
+            return {"success": True, "ticket": ticket, "action": action, "realized_usd": pnl}
 
         err = result.comment if result else "Unknown error"
         print(f"[MT5] ❌ #{ticket} {action} failed: {err}")
@@ -1420,10 +1518,14 @@ def run_ema_exit_monitor(timeframe=None):
                     if str(t.get("ticket")) == str(p.ticket):
                         t["status"]    = "closed"
                         t["mt5_state"] = "closed"
-                        t["exit_price"] = price
-                        t["exit_reason"] = "EMA20 cross exit"
                         break
                 _save_trades(trades)
+                # Stamp realized P&L from MT5 deal history (this path used to
+                # record the exit price but no P&L at all).
+                pnl = _record_close_pnl(p.ticket, exit_price=price,
+                                        exit_reason="EMA20 cross exit")
+                print(f"[EMAMonitor]    realized P&L: "
+                      f"{'unknown (deals not visible yet)' if pnl is None else f'{pnl:+.2f}'}")
                 closed_list.append({
                     "ticket":     p.ticket,
                     "symbol":     symbol,
