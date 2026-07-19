@@ -236,14 +236,9 @@ def main():
 
     for sym, rows in data.items():
         df = to_frame(rows)
-        # lookback MUST be passed explicitly. The engine computes
-        #   start = max(warmup, len(df) - lookback)
-        # and defaults lookback=200, so it scans only the last 200 bars no
-        # matter how much history it is handed — a 2-year frame and a 1000-bar
-        # frame both yield ~9 trades. Every caller that omits this (including
-        # strategy_tuner) is running a 200-bar backtest.
-        trades = run_atr_trailing_backtest(df, symbol=sym, atr_mult=2.5,
-                                           lookback=len(df))
+        # lookback=None (the engine default since the 200-bar-cap fix) scans
+        # the whole frame.
+        trades = run_atr_trailing_backtest(df, symbol=sym, atr_mult=2.5)
         print(f"{sym}: ATR_Trailing produced {len(trades)} trades")
         for t in trades:
             ts = t.get("entry_ts")

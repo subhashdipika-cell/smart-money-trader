@@ -82,11 +82,18 @@ def run_atr_trailing_backtest(
     atr_period:  int   = 14,
     atr_mult:    float = 2.5,
     ema_period:  int   = 20,
-    lookback:    int   = 200,
+    lookback:    int   = None,
 ) -> list:
     """
     Run the ATR Trailing Stop strategy on a 1H DataFrame.
     Returns a list of trade result dicts compatible with the existing backtest format.
+
+    lookback: how many trailing bars to scan. None (the default) scans the WHOLE
+    frame. It used to default to 200, which silently capped every backtest at the
+    last 200 bars however much history was passed — a 2-year frame and a 1000-bar
+    frame both produced ~9 trades, so the Strategy Tester's `days` selector and
+    the parameter tuner's grid search were both really running on ~8 days. Pass an
+    int only to deliberately restrict the window.
     """
     if df is None or len(df) < max(atr_period + 5, ema_period + 5, 50):
         return []
@@ -100,7 +107,12 @@ def run_atr_trailing_backtest(
     atr    = _atr(df, atr_period)
 
     trades = []
-    start  = max(atr_period + 5, ema_period + 5, len(df) - lookback)
+    # Warmup floor of 50 so the macro filter (EMA-50) and the 50-bar regime
+    # window are converged before the first entry. Previously start was always
+    # len(df)-200, deep in warmed data, so this edge was never exercised; with
+    # lookback=None it is, and 50 is the same minimum the length guard uses.
+    warmup = max(atr_period + 5, ema_period + 5, 50)
+    start  = warmup if lookback is None else max(warmup, len(df) - lookback)
 
     in_trade    = False
     direction   = None
