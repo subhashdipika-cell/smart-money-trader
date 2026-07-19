@@ -20,6 +20,7 @@ from app.services.gold_service       import get_multi_timeframe_data as gold_get
 from app.strategies.mtf_analysis     import analyze_multi_timeframe
 from app.services.telegram_service   import send_alert
 from app.services.strategy_learner   import run_learning, load_weights
+from app.services.sessions           import session_from_ts
 from app.services.sentiment_service  import get_sentiment
 from app.services.geo_strategy       import compute_geo_bias
 from app.services.web_researcher     import run_research, get_research_bias
@@ -1259,7 +1260,13 @@ def check_symbol(symbol, sentiment, state):
             "points":        None,
             "sentiment":     sentiment.get("overall_label", "--"),
             "fear_greed":    sentiment.get("fear_greed_score"),
-            "geo_risk":      sentiment.get("geo_risk", "LOW")
+            "geo_risk":      sentiment.get("geo_risk", "LOW"),
+            # Persisted so the record means what downstream code assumes it
+            # means. This whitelist silently dropped `session` for the life of
+            # the log, which is why every stored signal read "" and
+            # trader_brain's session matching could never fire. Derived, not
+            # copied from the strategy's own field — most set "Unknown".
+            "session":       session_from_ts(int(time.time() * 1000)),
         })
 
     except Exception as e:

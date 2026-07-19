@@ -19,6 +19,8 @@ import os
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 
+from app.services.clean_data import load_clean_log
+
 _BASE           = os.path.join(os.path.dirname(__file__), "..", "..")
 LOG_FILE        = os.path.abspath(os.path.join(_BASE, "signals_log.json"))
 WEIGHTS_FILE    = os.path.abspath(os.path.join(_BASE, "learned_weights.json"))
@@ -41,9 +43,10 @@ def _detect_strategy(signal):
 
 
 def _load_log():
-    try:
-        with open(LOG_FILE) as f: return json.load(f)
-    except Exception: return []
+    # Epoch-filtered: this module ranks strategies and writes `best_strategy`
+    # into learned_weights.json, so reading the pre-2026-07-05 outcomes would
+    # smuggle the corrupted history past the learner's guard. See clean_data.py.
+    return load_clean_log(LOG_FILE)
 
 
 def _load_weights():

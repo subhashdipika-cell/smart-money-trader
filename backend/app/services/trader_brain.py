@@ -25,17 +25,43 @@ from app.services.geo_strategy      import compute_geo_bias
 
 # Lazy import to avoid circular dependency
 def _get_quadrant_log():
+    """Resolved signals from the trustworthy epoch only.
+
+    Pre-2026-07-05 outcomes are corrupted (see clean_data.py): 83 filled trades
+    are logged as EXPIRED/0 pts, so the resolved set they leave behind is a
+    biased remnant — 92 trades at an 18% win rate where the truth is 168 at 26%.
+    Conviction must not be scored against that.
+    """
     try:
-        import json, os
+        import os
+        from app.services.clean_data import load_clean_log
         _BASE = os.path.join(os.path.dirname(__file__), "..", "..")
-        with open(os.path.abspath(os.path.join(_BASE, "signals_log.json"))) as f:
-            log = json.load(f)
-        return [s for s in log if s.get("outcome") in ("WIN","LOSS")]
+        log = load_clean_log(os.path.abspath(os.path.join(_BASE, "signals_log.json")))
+        return [s for s in log if s.get("outcome") in ("WIN", "LOSS")]
     except Exception:
         return []
 
 _BASE          = os.path.join(os.path.dirname(__file__), "..", "..")
 JOURNAL_FILE   = os.path.abspath(os.path.join(_BASE, "trader_journal.json"))
+
+# ── Quadrant-history tuning ───────────────────────────────────────────────────
+# A cell is one symbol + direction + session. These gates decide when its
+# history is allowed to move conviction.
+#
+# The BP arm used to be a hardcoded `bp_rate >= 0.4`. BP means a win of
+# BP_MIN_RR (2.5R) or better, and the book's baseline BP rate is ~6% — so that
+# threshold demanded a cell run at 6x its own book average, which no realistic
+# sample reaches. The bonus had never fired. It is now measured RELATIVE to the
+# live baseline, so it keeps working if the strategy's R-distribution shifts.
+#
+# BL stays an ABSOLUTE threshold on purpose: BL is a loss that blew through the
+# planned stop, which is an emergency at any baseline (currently 0% — the alarm
+# is silent because nothing is wrong, not because it is broken).
+QUADRANT_MIN_SAMPLES   = 5    # rate estimates on 3 trades are noise
+QUADRANT_MIN_BP_EVENTS = 2    # one lucky 2.5R win must not buy conviction
+QUADRANT_BP_MULT       = 2.0  # cell must run this far above baseline BP rate
+QUADRANT_BP_FLOOR      = 0.15 # ...and clear this, so a 0% baseline can't divide by luck
+QUADRANT_BL_RATE       = 0.2  # absolute: blown stops are Rule 2, any baseline
 KNOWLEDGE_FILE = os.path.abspath(os.path.join(_BASE, "strategy_knowledge.json"))
 
 
@@ -233,35 +259,56 @@ def _compute_conviction(signal, chart_obs, geo_bias, sentiment, knowledge, symbo
         reasons.append(f"High quality score ({q_score})")
 
     # 9. Quadrant history — does this symbol+session combo produce BP or BL?
+    # Session is DERIVED on both sides (see sessions.py). Reading it off the
+    # signal dict is what kept this block dead: live signals carry "Unknown"
+    # from their strategy, stored ones carried "" because the field was never
+    # persisted, so the match never once succeeded.
     try:
         from app.services.trading_journal import classify_quadrant
+        from app.services.sessions import session_of_signal, UNKNOWN
         resolved = _get_quadrant_log()
-        session  = signal.get("session", "")
+        session  = session_of_signal(signal)
 
-        # Filter to same symbol + same direction
-        similar = [s for s in resolved
-                   if s.get("symbol") == symbol
-                   and s.get("signal") == sig_type
-                   and s.get("session", "") == session]
+        # Filter to same symbol + same direction + same session. An unusable
+        # timestamp yields UNKNOWN — skip rather than pooling every such record.
+        similar = [] if session == UNKNOWN else [
+            s for s in resolved
+            if s.get("symbol") == symbol
+            and s.get("signal") == sig_type
+            and session_of_signal(s) == session
+        ]
 
-        if len(similar) >= 3:
-            bp_count = sum(1 for s in similar
-                          if classify_quadrant(s.get("outcome"), s.get("points"),
-                             s.get("entry"), s.get("sl"), s.get("tp"))[0] == "BP")
-            bl_count = sum(1 for s in similar
-                          if classify_quadrant(s.get("outcome"), s.get("points"),
-                             s.get("entry"), s.get("sl"), s.get("tp"))[0] == "BL")
-            bp_rate = bp_count / len(similar)
-            bl_rate = bl_count / len(similar)
+        if len(similar) >= QUADRANT_MIN_SAMPLES:
+            # Classify once per trade, not once per quadrant — the old code ran
+            # classify_quadrant over the whole cell twice on every signal.
+            quads    = [classify_quadrant(s.get("outcome"), s.get("points"),
+                                          s.get("entry"), s.get("sl"), s.get("tp"))[0]
+                        for s in similar]
+            bp_count = quads.count("BP")
+            bp_rate  = bp_count / len(quads)
+            bl_rate  = quads.count("BL") / len(quads)
 
-            if bp_rate >= 0.4:
+            # Baseline = the REST of the book, excluding this cell. Comparing a
+            # cell against a baseline it is itself part of is self-defeating:
+            # the better the cell, the higher it drags the bar it must clear.
+            all_quads = [classify_quadrant(s.get("outcome"), s.get("points"),
+                                           s.get("entry"), s.get("sl"), s.get("tp"))[0]
+                         for s in resolved]
+            rest_n    = len(resolved) - len(similar)
+            base_bp   = ((all_quads.count("BP") - bp_count) / rest_n) if rest_n > 0 else 0.0
+            bp_bar    = max(base_bp * QUADRANT_BP_MULT, QUADRANT_BP_FLOOR)
+
+            if bp_count >= QUADRANT_MIN_BP_EVENTS and bp_rate >= bp_bar:
                 conviction += 1.5
-                reasons.append(f"High BP rate in {session} ({bp_rate:.0%})")
-            if bl_rate >= 0.2:
+                reasons.append(
+                    f"High BP rate in {session} ({bp_rate:.0%} vs {base_bp:.0%} baseline)")
+            if bl_rate >= QUADRANT_BL_RATE:
                 conviction -= 2
                 warnings.append(f"BL risk in {session} ({bl_rate:.0%}) — Rule 2")
-    except Exception:
-        pass
+    except Exception as e:
+        # Never block a signal on a history lookup, but don't hide the failure:
+        # this block swallowed its own misconfiguration for its entire lifetime.
+        print(f"[Brain] quadrant history skipped: {type(e).__name__}: {e}")
 
     # 10. RR quality check — Rule 3: only approve if RR >= 2.5
     rr = float(signal.get("rr", 0))

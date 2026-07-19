@@ -1,16 +1,26 @@
 """
 learning_engine.py
 ------------------
-Analyses every resolved signal in signals_log.json and:
+SUPERSEDED — the live learner is strategy_learner.py, which exposes the same
+`run_learning()` name and writes the same learned_weights.json. Nothing imports
+this module; it is kept only for reference. Do NOT wire it back up without
+checking which one owns the file, or the two will fight over it.
+
+Analyses resolved signals in signals_log.json and:
   1. Calculates win-rate per confluence tag
   2. Calculates overall win-rate
   3. Raises/lowers the minimum quality-score threshold automatically
   4. Saves everything to learned_weights.json so signal_generator can use it
+
+Reads through clean_data.load_clean_log: the pre-2026-07-05 outcomes are
+corrupted, and this module previously read them unfiltered.
 """
 
 import json
 import os
 from collections import defaultdict
+
+from app.services.clean_data import load_clean_log
 
 # ── File paths ────────────────────────────────────────────────────────────────
 _BASE = os.path.join(os.path.dirname(__file__), "..", "..")
@@ -33,11 +43,7 @@ MIN_SAMPLES_PER_CONFLUENCE = 3  # don't score a confluence until it appears this
 
 
 def load_signals_log():
-    try:
-        with open(SIGNALS_LOG_FILE, "r") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    return load_clean_log(SIGNALS_LOG_FILE)
 
 
 def load_weights():

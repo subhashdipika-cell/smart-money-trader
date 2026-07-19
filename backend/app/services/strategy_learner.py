@@ -40,24 +40,14 @@ RECENCY_WEIGHT         = 2.0  # recent trades count this many times vs older one
 # as EXPIRED and logged a fake ~10% win rate — weights learned from that data
 # taught the engine the wrong lessons. The learner only trusts signals from
 # this epoch onward; MIN_SAMPLES gates keep defaults until clean data grows.
-CLEAN_DATA_EPOCH_MS = 1783209600000   # 2026-07-05 00:00 UTC
+# The epoch now lives in clean_data.py so every consumer shares one definition.
+from app.services.clean_data import load_clean_log  # noqa: E402
 
 
 # ── I/O helpers ───────────────────────────────────────────────────────────────
 
 def _load_log():
-    try:
-        with open(SIGNALS_LOG_FILE, "r") as f:
-            log = json.load(f)
-    except Exception:
-        return []
-    def _ts(s):
-        try:
-            t = int(s.get("timestamp", 0))
-            return t if t > 1e12 else t * 1000
-        except Exception:
-            return 0
-    return [s for s in log if _ts(s) >= CLEAN_DATA_EPOCH_MS]
+    return load_clean_log(SIGNALS_LOG_FILE)
 
 def load_weights():
     try:
@@ -118,16 +108,10 @@ def _win_rate_with_recency(signals):
 
 
 def _session_from_timestamp(ts_ms):
-    """Derive trading session from UTC timestamp."""
-    try:
-        dt = datetime.fromtimestamp(int(ts_ms) / 1000, tz=timezone.utc)
-        h  = dt.hour
-        if 0  <= h < 7:  return "Asia"
-        if 7  <= h < 12: return "London"
-        if 12 <= h < 20: return "New York"
-        return "Off-session"
-    except Exception:
-        return "Unknown"
+    """Derive trading session from UTC timestamp. Delegates to sessions.py —
+    this was one of three copies that had already drifted apart."""
+    from app.services.sessions import session_from_ts
+    return session_from_ts(ts_ms)
 
 
 def _confluence_win_rates(resolved):

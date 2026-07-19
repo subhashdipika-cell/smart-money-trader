@@ -46,16 +46,9 @@ def _win_rate(signals):
 
 
 def _session_from_ts(ts_ms):
-    try:
-        from datetime import datetime, timezone
-        dt = datetime.fromtimestamp(int(ts_ms)/1000, tz=timezone.utc)
-        h  = dt.hour
-        if 0  <= h < 7:  return "Asia"
-        if 7  <= h < 12: return "London"
-        if 12 <= h < 20: return "New York"
-        return "Off-session"
-    except Exception:
-        return "Unknown"
+    """Delegates to sessions.py — this was one of three drifting copies."""
+    from app.services.sessions import session_from_ts
+    return session_from_ts(ts_ms)
 
 
 def generate_suggestions():
