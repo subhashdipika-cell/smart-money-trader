@@ -70,6 +70,11 @@ MIN_TEST_TRADES  = 5
 # Spreads widen in thin liquidity and swaps are revised, so treat these as a
 # reasonable central estimate, not a constant.
 COSTS = {
+    # smc_swing / momentum use yfinance symbol names for the same instruments.
+    "BTCUSD":  {"exec": "BTCUSD",  "spread_pct": 0.0258,
+                "swap_long_night": -25.0 / 365, "swap_short_night": 0.0},
+    "ETHUSD":  {"exec": "ETHUSD",  "spread_pct": 0.1286,
+                "swap_long_night": -30.0 / 365, "swap_short_night": -3.0 / 365},
     "BTCUSDT": {"exec": "BTCUSD",  "spread_pct": 0.0258,
                 "swap_long_night": -25.0 / 365, "swap_short_night": 0.0},
     "ETHUSDT": {"exec": "ETHUSD",  "spread_pct": 0.1286,
@@ -234,6 +239,51 @@ def _ema20_market(symbol, value, df):
     return _ema20(symbol, value, df, market=True)
 
 
+# ── smc_swing / eth_momentum / btc_momentum ──────────────────────────────
+# These fetch their own yfinance history and return a result dict rather than
+# taking a frame, so they are run once over the full window and their trades
+# split by entry_ts. Their data source differs from the Binance/MT5 frames used
+# above, so compare them WITHIN strategy across folds, not against ATR.
+#
+# CRITICAL: unclosed trades are dropped here. smc_swing returns trades with
+# outcome "OPEN" and counts their mark-to-market P&L in `net_points` — on
+# ETHUSD over 700d that is 17 positions worth +2510 points against -1201 on
+# closed trades, so the reported net (+1309) is an artifact and the strategy
+# actually loses. The opens are not recent stragglers either: they are spread
+# across the whole window, one entered 542 days before the data ends, and 16
+# of 17 are profitable. Losers hit their stop and close; winners stay "open"
+# and get marked favourably. Counting them is survivorship inflation.
+_SELF_CACHE = {}
+
+
+def _self_data_runner(mod_fn, key_prefix):
+    def run(symbol, value, _df, param):
+        key = (key_prefix, symbol, value)
+        if key not in _SELF_CACHE:
+            r = mod_fn(symbol, value, param)
+            trades = (r or {}).get("trades") or []
+            _SELF_CACHE[key] = [
+                t for t in trades
+                if t.get("outcome") in ("WIN", "LOSS") and t.get("entry_ts")
+            ]
+        return _SELF_CACHE[key]
+    return run
+
+
+def _smc(symbol, value, df):
+    from app.strategies.smc_swing_strategy import run_smc_swing_backtest
+    return _self_data_runner(
+        lambda s, v, p: run_smc_swing_backtest(symbol=s, days=700, rr_ratio=v),
+        "smc")(symbol, value, df, "rr_ratio")
+
+
+def _mom(symbol, value, df):
+    from app.strategies.eth_momentum_strategy import run_eth_momentum_backtest
+    return _self_data_runner(
+        lambda s, v, p: run_eth_momentum_backtest(symbol=s, days=700, rsi_high=v),
+        "mom")(symbol, value, df, "rsi_high")
+
+
 ADAPTERS = {
     "atr_trailing": {
         "fn":      _atr,
@@ -256,6 +306,20 @@ ADAPTERS = {
         "param":   "rr_ratio",
         "values":  [2.0, 2.5, 3.0, 4.0],
         "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
+    "smc_swing": {
+        "fn":        _smc,
+        "param":     "rr_ratio",
+        "values":    [2.5, 3.0, 4.0],        # mirrors strategy_tuner.TUNABLE
+        "symbols":   ["BTCUSD", "ETHUSD"],
+        "self_data": True,
+    },
+    "momentum": {
+        "fn":        _mom,
+        "param":     "rsi_high",
+        "values":    [55.0, 60.0, 65.0, 70.0],
+        "symbols":   ["BTCUSD", "ETHUSD"],
+        "self_data": True,
     },
 }
 
@@ -321,17 +385,26 @@ def main():
     gross = defaultdict(list)         # same trades before costs
 
     for sym in spec["symbols"]:
-        if sym not in INSTRUMENTS:
-            continue
-        rows = load_1h(sym, start_ms, now_ms)
-        if not rows:
-            print(f"{sym}: no data, skipped")
-            continue
-        df = to_frame(rows)
-
-        # One backtest per parameter value over the whole frame; split later.
-        runs = {v: spec["fn"](sym, v, df) for v in spec["values"]}
-        t0, t1 = rows[0][0], rows[-1][0]
+        if spec.get("self_data"):
+            # Engine fetches its own history; derive the span from its trades.
+            df = None
+            runs = {v: spec["fn"](sym, v, None) for v in spec["values"]}
+            all_ts = [int(t["entry_ts"]) for r in runs.values() for t in r]
+            if not all_ts:
+                print(f"{sym}: no trades, skipped")
+                continue
+            t0, t1 = min(all_ts), max(all_ts)
+        else:
+            if sym not in INSTRUMENTS:
+                continue
+            rows = load_1h(sym, start_ms, now_ms)
+            if not rows:
+                print(f"{sym}: no data, skipped")
+                continue
+            df = to_frame(rows)
+            # One backtest per parameter value over the frame; split later.
+            runs = {v: spec["fn"](sym, v, df) for v in spec["values"]}
+            t0, t1 = rows[0][0], rows[-1][0]
 
         print(f"── {sym} ──")
         print(f"{'fold':>4} {'train end':>12} {'pick':>6} {'train':>9} "

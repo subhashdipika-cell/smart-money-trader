@@ -1,13 +1,11 @@
 {
   "BTC": [
-    "smc_swing",
     "btc_momentum",
     "custom_1781159562203_2",
     "EMA20_Pullback"
   ],
   "ETH": [
-    "eth_momentum",
-    "smc_swing"
+    "eth_momentum"
   ],
   "Gold": [
     "h4_break_retest",
