@@ -383,6 +383,87 @@ def _break_retest(symbol, value, df):
     return _BR_CACHE[key]
 
 
+def _resolve_br_partial(df, sigs, tgt1_r=1.0, tgt1_frac=0.5, tgt2_r=2.0,
+                        move_be=True):
+    """Scale out at TGT1, optionally move the stop to breakeven, run the rest
+    to TGT2.
+
+    The mechanism worth testing: ~17% of these setups reach 1R and then give it
+    all back to the stop. All-or-nothing books those as -1R; taking half off at
+    1R books +0.5R instead.
+
+    The catch, and the reason this must be SIMULATED rather than computed from
+    hit rates: a breakeven stop is TIGHTER than the original. Some trades that
+    would have reached 2R under the original stop get scratched at BE on the
+    way. Naive EV from measured hit rates ignores that and flatters the result
+    — it says BTC goes -0.055R -> +0.044R, which assumes every current 2R
+    winner still gets there through a stop that did not exist before.
+
+    Returns are expressed in R and then converted by the caller, so a partial
+    exit is weighted by its fraction of the position.
+    """
+    ts = df["timestamp"].astype("int64").values
+    hi = df["high"].astype(float).values
+    lo = df["low"].astype(float).values
+    out = []
+    for s in sigs:
+        i = int(s["index"])
+        entry, sl0 = float(s["entry"]), float(s["sl"])
+        buy = s["signal"] == "BUY"
+        risk = abs(entry - sl0)
+        if risk <= 0 or i + 1 >= len(hi):
+            continue
+        t1 = entry + tgt1_r * risk if buy else entry - tgt1_r * risk
+        t2 = entry + tgt2_r * risk if buy else entry - tgt2_r * risk
+        stop = sl0
+        booked = 0.0          # R already realised from the partial
+        rem = 1.0             # fraction still open
+        done = False
+        for j in range(i + 1, len(hi)):
+            hit_stop = (lo[j] <= stop) if buy else (hi[j] >= stop)
+            hit_t1 = (hi[j] >= t1) if buy else (lo[j] <= t1)
+            hit_t2 = (hi[j] >= t2) if buy else (lo[j] <= t2)
+            # Stop checked first inside a bar — conservative, and consistent
+            # with every other resolver here.
+            if hit_stop:
+                stop_r = (stop - entry) / risk if buy else (entry - stop) / risk
+                booked += rem * stop_r
+                done = True
+            elif hit_t1 and rem == 1.0:
+                booked += tgt1_frac * tgt1_r
+                rem -= tgt1_frac
+                if move_be:
+                    stop = entry
+                if hit_t2:                      # same bar ran all the way
+                    booked += rem * tgt2_r
+                    rem = 0.0
+                    done = True
+            elif hit_t2 and rem < 1.0:
+                booked += rem * tgt2_r
+                rem = 0.0
+                done = True
+            if done or rem <= 0:
+                out.append({"signal": s["signal"], "entry": entry,
+                            # points expressed so the caller's pts/entry
+                            # conversion yields the R-weighted return
+                            "points": booked * risk,
+                            "outcome": "WIN" if booked > 0 else "LOSS",
+                            "entry_ts": int(ts[i]), "exit_ts": int(ts[j])})
+                break
+    return out
+
+
+def _break_retest_partial(symbol, value, df):
+    """TGT1 at 1R (half off, stop to breakeven) then TGT2 at `value` R."""
+    from app.strategies.break_retest_strategy import generate_break_retest_signals
+    key = (symbol, len(df), float(value), "partial")
+    if key not in _BR_CACHE:
+        sigs = generate_break_retest_signals(df, rr_ratio=2.0, scan_bars=len(df),
+                                             symbol=symbol)
+        _BR_CACHE[key] = _resolve_br_partial(df, sigs, tgt2_r=float(value))
+    return _BR_CACHE[key]
+
+
 def _break_retest_filtered(symbol, value, df):
     """Break & Retest keeping only trend-aligned AND decisive breaks.
 
@@ -403,6 +484,12 @@ def _break_retest_filtered(symbol, value, df):
 
 
 ADAPTERS = {
+    "break_retest_partial": {
+        "fn":      _break_retest_partial,
+        "param":   "tgt2_r",
+        "values":  [2.0, 3.0],
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
     "break_retest_filtered": {
         "fn":      _break_retest_filtered,
         "param":   "rr_ratio",
