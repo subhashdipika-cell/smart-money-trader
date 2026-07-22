@@ -337,7 +337,54 @@ def _donch_long(symbol, value, df):
     return _donchian_trades(symbol, value, df, allow_short=False)
 
 
+# ── Break & Retest ───────────────────────────────────────────────────────
+# The strategy added on request with a 1:2 target. Its entry is the retest
+# bar's close, i.e. effectively at market, so it is resolved from the next bar
+# with the SL/TP the generator itself produced rather than re-deriving them.
+_BR_CACHE: dict = {}
+
+
+def _break_retest(symbol, value, df):
+    from app.strategies.break_retest_strategy import generate_break_retest_signals
+    key = (symbol, len(df), float(value))
+    if key not in _BR_CACHE:
+        sigs = generate_break_retest_signals(df, rr_ratio=float(value),
+                                             scan_bars=len(df), symbol=symbol)
+        ts = df["timestamp"].astype("int64").values
+        hi = df["high"].astype(float).values
+        lo = df["low"].astype(float).values
+        cl = df["close"].astype(float).values
+        trades = []
+        for s in sigs:
+            i = int(s["index"])
+            entry, sl, tp = float(s["entry"]), float(s["sl"]), float(s["tp"])
+            buy = s["signal"] == "BUY"
+            risk = abs(entry - sl)
+            if risk <= 0 or i + 1 >= len(cl):
+                continue
+            for j in range(i + 1, len(cl)):
+                # SL before TP inside a bar — conservative, and consistent
+                # with every other adapter here.
+                hit_sl = (lo[j] <= sl) if buy else (hi[j] >= sl)
+                hit_tp = (hi[j] >= tp) if buy else (lo[j] <= tp)
+                if hit_sl or hit_tp:
+                    pts = (-risk) if hit_sl else (abs(tp - entry))
+                    trades.append({"signal": s["signal"], "entry": entry,
+                                   "points": pts,
+                                   "outcome": "LOSS" if hit_sl else "WIN",
+                                   "entry_ts": int(ts[i]), "exit_ts": int(ts[j])})
+                    break
+        _BR_CACHE[key] = trades
+    return _BR_CACHE[key]
+
+
 ADAPTERS = {
+    "break_retest": {
+        "fn":      _break_retest,
+        "param":   "rr_ratio",
+        "values":  [2.0],          # the requested 1:2; single value = no tuning
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
     "donchian_ls": {
         "fn":      _donch_ls,
         "param":   "lookback",

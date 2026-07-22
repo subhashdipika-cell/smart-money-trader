@@ -107,6 +107,15 @@ LIVE_STRATEGIES = {
         "assets":  ["BTC", "ETH", "Gold"],
         "live":    True,
     },
+    "Break_Retest": {
+        "label":   "Break & Retest",
+        "desc":    "Price breaks a 20-bar level, returns to it and holds — entry on the hold, 1:2 RR. Retest entry sits behind price so it places as a true LIMIT.",
+        "assets":  ["BTC", "ETH", "Gold"],
+        # Backtested 2026-07-22 over 20,000 H1 bars/asset: PF 0.86 / 0.88 / 0.72
+        # (gold/BTC/ETH), win rate ~31% against the 33.3% needed at 1:2. Available
+        # for backtesting and tuning; NOT enabled in asset_strategy_config.json.
+        "live":    False,
+    },
     "EMA20_Pullback": {
         "label":   "EMA 20 Pullback",
         "desc":    "Price pulls back to rising/falling 20 EMA with rejection candle.",
@@ -331,6 +340,23 @@ def _run_one_strategy(strategy_id: str, symbol: str, data: dict) -> list:
     if not strat_info.get("live", True):
         print(f"[{symbol}] '{strategy_id}' is backtest-only — skipping for live signals")
         return []
+
+    if strategy_id == "Break_Retest":
+        try:
+            from app.strategies.break_retest_strategy import generate_break_retest_signals
+            htf_df = data.get("1h")
+            if htf_df is None or htf_df.empty:
+                return []
+            sigs = generate_break_retest_signals(htf_df, symbol=symbol,
+                                                 scan_bars=LIVE_TRIGGER_BARS + 1)
+            sigs = _filter_stale_signals(sigs, htf_df, symbol)
+            for x in sigs:
+                x["strategy_tag"] = "Break_Retest"
+            print(f"[{symbol}] Break & Retest: {len(sigs)} signal(s)")
+            return sigs
+        except Exception as exc:
+            print(f"[{symbol}] Break & Retest error: {exc}")
+            return []
 
     if strategy_id == "EMA20_Pullback":
         try:
