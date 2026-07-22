@@ -1292,6 +1292,11 @@ def check_symbol(symbol, sentiment, state):
         # (signal message kept above for logging/UI but no longer broadcast)
 
         # ── Execute on MT4 if enabled ─────────────────────────────────────
+        # exec_note is persisted into the signal's log entry. Failures used
+        # to only print() to a console nobody reads — on 2026-07-22 four
+        # signals showed OPEN in the UI with no MT5 order and no recorded
+        # reason anywhere.
+        exec_note = "executor unavailable"
         if _MT4_AVAILABLE:
             try:
                 mode = _mt4_mode()
@@ -1309,10 +1314,15 @@ def check_symbol(symbol, sentiment, state):
                     label = {"paper": "Paper", "demo": "Demo Live", "live": "Real Live"}.get(mode, mode)
                     result = _mt4_execute(mt4_signal)
                     if result.get("success"):
+                        exec_note = f"placed #{result.get('ticket')} ({mode})"
                         print(f"[MT4] {'📋 Paper' if mode=='paper' else '🔴 Live'} trade: #{result.get('ticket')}")
                     else:
+                        exec_note = f"failed: {result.get('error')}"
                         print(f"[MT4] Order failed: {result.get('error')}")
+                else:
+                    exec_note = f"skipped: mode={mode}"
             except Exception as mt4_err:
+                exec_note = f"error: {mt4_err}"
                 print(f"[MT4] Error: {mt4_err}")
 
         # Increment daily counter for this timeframe
@@ -1338,6 +1348,7 @@ def check_symbol(symbol, sentiment, state):
             "setup":         latest.get("setup") or latest.get("strategy_tag") or "unlabeled",
             "strategy_tag":  latest.get("strategy_tag") or "unlabeled",
             "trigger_bar_ts": latest.get("trigger_bar_ts"),
+            "execution":     exec_note,
             "outcome":       "OPEN",
             "points":        None,
             "sentiment":     sentiment.get("overall_label", "--"),

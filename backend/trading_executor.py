@@ -742,7 +742,14 @@ def _paper(signal, sym_mt5, direction, entry, sl, tp, lot):
 def _live(signal, sym_mt5, direction, entry, sl, tp, lot, mode):
     mt5, info = _connect()
     if mt5 is None:
-        return {"success": False, "error": "MT5 not connected"}
+        # One retry: initialize() can transiently fail when another thread
+        # (candle fetcher) is mid-connect on the same IPC channel. A signal
+        # is a one-shot — giving up on the first collision silently dropped
+        # four executions on 2026-07-22.
+        time.sleep(2)
+        mt5, info = _connect()
+    if mt5 is None:
+        return {"success": False, "error": "MT5 not connected (after retry)"}
 
     try:
         import MetaTrader5 as mt5_lib
