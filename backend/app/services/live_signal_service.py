@@ -465,6 +465,28 @@ COOLDOWN_BY_STYLE = {
 }
 COOLDOWN_SECONDS = 90 * 60  # default fallback
 
+
+# Strategies stamp a CHART TIMEFRAME ("1H", "4H", "15m") into the signal's
+# `timeframe` field, but cooldowns and daily limits are keyed by STYLE
+# ("Scalping"/"Intraday"/"Swing"). Every non-style label therefore missed both
+# dicts and silently took the fallbacks: 99 trades/day and a 90-minute
+# cooldown. The 4H SMC strategy — SMT's actual swing strategy — ran that way
+# for the life of the log, and daily_signal_counts.json accumulated orphan
+# "1H"/"1h" buckets beside the real ones while "Swing" sat permanently at 0.
+_STYLE_BY_TIMEFRAME = {
+    "1m": "Scalping", "3m": "Scalping", "5m": "Scalping", "15m": "Scalping",
+    "30m": "Intraday", "1h": "Intraday", "1H": "Intraday",
+    "4h": "Swing", "4H": "Swing", "1d": "Swing", "1D": "Swing", "Daily": "Swing",
+}
+
+
+def _style_bucket(timeframe) -> str:
+    """Map a signal's timeframe/style label onto a governed style bucket."""
+    tf = str(timeframe or "").strip()
+    if tf in DAILY_LIMITS:          # already a style ("Scalping"/"Intraday"/"Swing")
+        return tf
+    return _STYLE_BY_TIMEFRAME.get(tf) or _STYLE_BY_TIMEFRAME.get(tf.lower()) or "Intraday"
+
 # ── Session windows (UTC) ─────────────────────────────────────────────────────
 # First 30 minutes of each session = high opportunity window
 SESSIONS = {
@@ -497,7 +519,7 @@ def _get_cooldown_seconds(timeframe, conviction_score=0, is_session_opening=Fals
     - Signal quality (high conviction = shorter cooldown)
     - Session timing (session opens get shorter cooldown)
     """
-    base = COOLDOWN_BY_STYLE.get(timeframe, COOLDOWN_SECONDS)
+    base = COOLDOWN_BY_STYLE.get(_style_bucket(timeframe), COOLDOWN_SECONDS)
 
     # High conviction signal — reduce cooldown by 30%
     if conviction_score >= 8:
@@ -555,17 +577,20 @@ def _save_daily_counts(counts):
 
 
 def _daily_limit_reached(timeframe):
+    style  = _style_bucket(timeframe)
     counts = _load_daily_counts()
-    limit  = DAILY_LIMITS.get(timeframe, 99)
-    return counts.get(timeframe, 0) >= limit
+    limit  = DAILY_LIMITS.get(style, 99)
+    return counts.get(style, 0) >= limit
 
 
 def _increment_daily_count(timeframe):
+    style  = _style_bucket(timeframe)
     counts = _load_daily_counts()
-    counts[timeframe] = counts.get(timeframe, 0) + 1
+    counts[style] = counts.get(style, 0) + 1
     _save_daily_counts(counts)
-    remaining = DAILY_LIMITS.get(timeframe, 99) - counts[timeframe]
-    print(f"[Counter] {timeframe}: {counts[timeframe]}/{DAILY_LIMITS.get(timeframe, '?')} today ({remaining} remaining)")
+    remaining = DAILY_LIMITS.get(style, 99) - counts[style]
+    note = "" if style == str(timeframe) else f" (from '{timeframe}')"
+    print(f"[Counter] {style}{note}: {counts[style]}/{DAILY_LIMITS.get(style, '?')} today ({remaining} remaining)")
 
 
 def _daily_counts_summary():
@@ -1049,8 +1074,9 @@ def is_quality_signal(signal, sentiment, symbol="BTCUSDT"):
     # Daily limit check
     timeframe = signal.get("timeframe", "Scalping")
     if _daily_limit_reached(timeframe):
-        limit = DAILY_LIMITS.get(timeframe, "?")
-        return False, f"Daily {timeframe} limit reached ({limit}/day)"
+        style = _style_bucket(timeframe)
+        limit = DAILY_LIMITS.get(style, "?")
+        return False, f"Daily {style} limit reached ({limit}/day)"
 
     return True, "OK"
 
