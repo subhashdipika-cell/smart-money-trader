@@ -57,9 +57,14 @@ TUNABLE = {
     "choch_swing":      {"param": "rr",       "values": [2.0, 3.0, 4.0],
                          "tag": "CHoCH_Swing", "symbols": ["BTCUSDT", "ETHUSDT"],
                          "label": "SMC CHoCH Swing"},
-    "atr_trailing":     {"param": "atr_mult", "values": [2.0, 2.5, 3.0, 3.5],
-                         "tag": "ATR_Trailing", "symbols": ["BTCUSDT", "ETHUSDT"],
-                         "label": "ATR Chandelier Trailing"},
+    # atr_trailing is deliberately NOT tunable. Walk-forward over 2 years
+    # (tools/walk_forward.py, 2026-07-19) showed every fold on every instrument
+    # picking the same value, and tuning never beating a pinned one:
+    # BTC -0.035%/trade, ETH -0.007%, gold +-0.000%. The grid was spending
+    # compute to rediscover a constant, and on BTC the value it kept choosing
+    # (3.5) was WORSE out of sample than the fixed best (2.0) — the search was
+    # fitting the training window. Pinned at the 2.5 default in live_adapters.
+    # Re-enable only with fresh walk-forward evidence that tuning adds value.
     "momentum_scalp":   {"param": "rr",       "values": [1.0, 1.5, 2.0, 2.5],
                          "tag": "BB_RSI_Scalper", "symbols": ["BTCUSDT", "ETHUSDT"],
                          "label": "M1 Momentum Scalper"},
