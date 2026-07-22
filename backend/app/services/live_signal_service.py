@@ -244,6 +244,68 @@ def get_strategy_catalogue() -> dict:
         print(f"[Catalogue] custom strategies unavailable: {exc}")
     return catalogue
 
+# Live trigger window — must match strategy_builder_engine.LOOKBACK_BARS so
+# builder strategies and hardcoded ones behave identically.
+LIVE_TRIGGER_BARS = 2
+LIVE_MAX_DRIFT_ATR = 0.75
+
+
+def _filter_stale_signals(signals: list, df, symbol: str,
+                          max_bars_back: int = LIVE_TRIGGER_BARS,
+                          max_drift_atr: float = LIVE_MAX_DRIFT_ATR) -> list:
+    """Drop signals anchored to bars outside the live trigger window.
+
+    Range-scanning strategies (generate_ema_signals scans ~200 bars) return
+    every historical setup in the series, and check_symbol picks by
+    quality_score with NO recency preference — so a week-old setup could be
+    sent with an entry thousands of dollars from live price. Observed
+    2026-07-22: BTC candidate entry 63,169 while price was 66,186.
+
+    Keeps signals whose bar is within max_bars_back of the newest bar AND
+    whose bar close is still within max_drift_atr of current price. Signals
+    with no "index" are passed through untouched — we can't judge them.
+    """
+    if not signals or df is None or len(df) < 20:
+        return signals
+    try:
+        import pandas as pd          # module-local: this file has no global pd
+        last_i = len(df) - 1
+        close = df["close"].astype(float)
+        now_px = float(close.iloc[-1])
+        high, low = df["high"].astype(float), df["low"].astype(float)
+        tr = pd.concat([high - low, (high - close.shift()).abs(),
+                        (low - close.shift()).abs()], axis=1).max(axis=1)
+        atr = float(tr.rolling(14).mean().iloc[-1])
+    except Exception as exc:
+        print(f"[{symbol}] stale-filter skipped: {exc}")
+        return signals
+
+    kept = []
+    for s in signals:
+        i = s.get("index")
+        if i is None:
+            kept.append(s)
+            continue
+        if i < last_i - max_bars_back:
+            continue                                   # older than the window
+        if atr and atr > 0:
+            drift = abs(now_px - float(close.iloc[i]))
+            if drift > max_drift_atr * atr:
+                print(f"[{symbol}] Stale signal dropped: bar {i}/{last_i}, "
+                      f"drift {drift:.2f} > {max_drift_atr}*ATR({atr:.2f})")
+                continue
+        # Same dedup key the builder strategies use, so a re-detected trigger
+        # on a later cycle can't be sent twice.
+        try:
+            s.setdefault("trigger_bar_ts", int(df["timestamp"].iloc[i]))
+        except Exception:
+            pass
+        kept.append(s)
+    if len(kept) != len(signals):
+        print(f"[{symbol}] Recency filter: {len(signals)} -> {len(kept)} signal(s)")
+    return kept
+
+
 def _run_one_strategy(strategy_id: str, symbol: str, data: dict) -> list:
     """Run a single strategy and return its signals (tagged with strategy_id)."""
 
@@ -276,7 +338,12 @@ def _run_one_strategy(strategy_id: str, symbol: str, data: dict) -> list:
             htf_df = data.get("1h")
             if htf_df is None or htf_df.empty:
                 return []
-            sigs = generate_ema_signals(htf_df, symbol=symbol)
+            # lookback caps the strategy's own scan to the live trigger window
+            # (default 200 bars ~= 8 days of history); the filter then applies
+            # the ATR drift guard and stamps trigger_bar_ts.
+            sigs = generate_ema_signals(htf_df, symbol=symbol,
+                                        lookback=LIVE_TRIGGER_BARS + 1)
+            sigs = _filter_stale_signals(sigs, htf_df, symbol)
             for s in sigs:
                 s["strategy_tag"] = "EMA20_Pullback"
             print(f"[{symbol}] EMA20 Pullback: {len(sigs)} signal(s)")
