@@ -111,11 +111,150 @@ def _atr(symbol, value, df):
                                      lookback=len(df))
 
 
+# ── EMA20_Pullback ───────────────────────────────────────────────────────
+# This one has no backtest engine — it is a live SIGNAL GENERATOR, so the
+# harness has to reproduce how live actually calls it or it would be scoring a
+# different strategy. Two traps:
+#
+#   1. generate_ema_signals gates on market regime using df.tail(100). Handing
+#      it the whole 2-year frame would judge every historical setup by TODAY's
+#      regime — and return nothing at all if today is SIDEWAYS.
+#   2. Live passes lookback=LIVE_TRIGGER_BARS+1 (3 bars) and then applies
+#      _filter_stale_signals, so only setups on the last ~2 bars survive.
+#      Scanning the default 200 bars would invent setups live would never send.
+#
+# So: walk bar by bar with a trailing window, exactly as live sees it.
+_EMA_WINDOW = 250     # EMA50 converges well inside this; covers tail(100)+ATR14
+_EMA_SIG_CACHE = {}
+
+
+def _ema_signals(symbol, df):
+    """Every signal live would have emitted, replayed bar by bar. Cached: the
+    trigger does not depend on rr_ratio, only the TP does."""
+    key = (symbol, len(df), int(df["timestamp"].iloc[0]))
+    if key in _EMA_SIG_CACHE:
+        return _EMA_SIG_CACHE[key]
+    from app.strategies.ema_strategy import generate_ema_signals
+    from app.services.live_signal_service import (
+        _filter_stale_signals, LIVE_TRIGGER_BARS)
+    out, seen = [], set()
+    for i in range(_EMA_WINDOW, len(df)):
+        w = df.iloc[i - _EMA_WINDOW + 1:i + 1]
+        try:
+            sigs = generate_ema_signals(w, symbol=symbol,
+                                        lookback=LIVE_TRIGGER_BARS + 1)
+            sigs = _filter_stale_signals(sigs, w, symbol)
+        except Exception:
+            continue
+        for s in sigs:
+            # Map the in-window index back to an absolute bar, then dedupe:
+            # a 3-bar lookback re-emits the same setup on consecutive calls,
+            # while live blocks duplicates via signal_state.
+            idx = s.get("index")
+            if idx is None:
+                continue
+            abs_i = i - _EMA_WINDOW + 1 + int(idx)
+            k = (abs_i, s.get("signal"), round(float(s.get("entry", 0)), 2))
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append((abs_i, s))
+    _EMA_SIG_CACHE[key] = out
+    return out
+
+
+def _resolve(df, bar_i, sig, rr, market=False):
+    """Walk a signal forward under the live resolver's rules: touch fill, 24h
+    to fill, 48h cap once filled, SL checked BEFORE TP inside a bar.
+
+    Resolution is on 1H bars, same as the ATR engine, so the two are
+    comparable. Intrabar order is unknowable at this granularity, hence the
+    conservative SL-first assumption.
+    """
+    ts  = df["timestamp"].astype("int64").values
+    hi  = df["high"].astype(float).values
+    lo  = df["low"].astype(float).values
+    cl  = df["close"].astype(float).values
+    entry0 = float(sig["entry"])
+    sl     = float(sig["sl"])
+    buy    = str(sig.get("signal", "")).upper() == "BUY"
+    risk   = abs(entry0 - sl)
+    if risk <= 0:
+        return None
+
+    start = bar_i + 1
+    if start >= len(df):
+        return None
+    if market:
+        entry = cl[bar_i]                    # fill now, keep the risk distance
+        sl    = entry - risk if buy else entry + risk
+        fill_i = start
+    else:
+        entry, fill_i = entry0, None
+    tp = entry + rr * risk if buy else entry - rr * risk
+
+    t0 = ts[bar_i]
+    for j in range(start, len(df)):
+        if fill_i is None:
+            if ts[j] - t0 > 24 * 3600_000:
+                return None                  # expired unfilled — not a trade
+            if (lo[j] <= entry) if buy else (hi[j] >= entry):
+                fill_i = j
+            else:
+                continue
+        elif ts[j] - ts[fill_i] > 48 * 3600_000:
+            px = cl[j]
+            pts = (px - entry) if buy else (entry - px)
+            return {"signal": sig.get("signal"), "entry": entry,
+                    "points": pts, "outcome": "WIN" if pts > 0 else "LOSS",
+                    "entry_ts": int(ts[fill_i]), "exit_ts": int(ts[j])}
+        hit_sl = (lo[j] <= sl) if buy else (hi[j] >= sl)
+        hit_tp = (hi[j] >= tp) if buy else (lo[j] <= tp)
+        if hit_sl:
+            return {"signal": sig.get("signal"), "entry": entry,
+                    "points": -risk, "outcome": "LOSS",
+                    "entry_ts": int(ts[fill_i]), "exit_ts": int(ts[j])}
+        if hit_tp:
+            return {"signal": sig.get("signal"), "entry": entry,
+                    "points": rr * risk, "outcome": "WIN",
+                    "entry_ts": int(ts[fill_i]), "exit_ts": int(ts[j])}
+    return None
+
+
+def _ema20(symbol, value, df, market=False):
+    trades = []
+    for bar_i, sig in _ema_signals(symbol, df):
+        t = _resolve(df, bar_i, sig, value, market=market)
+        if t:
+            trades.append(t)
+    return trades
+
+
+def _ema20_market(symbol, value, df):
+    return _ema20(symbol, value, df, market=True)
+
+
 ADAPTERS = {
     "atr_trailing": {
         "fn":      _atr,
         "param":   "atr_mult",
         "values":  [2.0, 2.5, 3.0, 3.5],     # mirrors strategy_tuner.TUNABLE
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
+    # As it trades today: a limit order at the pullback level.
+    "ema20_pullback": {
+        "fn":      _ema20,
+        "param":   "rr_ratio",
+        "values":  [2.0, 2.5, 3.0, 4.0],
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
+    # Same setups taken at market instead. The signal-log replay put the
+    # adverse selection of waiting for the retrace at -0.35R/trade; this tests
+    # that on 2 years of data rather than 380 logged signals.
+    "ema20_market": {
+        "fn":      _ema20_market,
+        "param":   "rr_ratio",
+        "values":  [2.0, 2.5, 3.0, 4.0],
         "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
     },
 }

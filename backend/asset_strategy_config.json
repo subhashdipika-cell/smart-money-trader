@@ -7,8 +7,7 @@
   ],
   "ETH": [
     "eth_momentum",
-    "smc_swing",
-    "EMA20_Pullback"
+    "smc_swing"
   ],
   "Gold": [
     "h4_break_retest",
