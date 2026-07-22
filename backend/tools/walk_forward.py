@@ -344,12 +344,9 @@ def _donch_long(symbol, value, df):
 _BR_CACHE: dict = {}
 
 
-def _break_retest(symbol, value, df):
-    from app.strategies.break_retest_strategy import generate_break_retest_signals
-    key = (symbol, len(df), float(value))
-    if key not in _BR_CACHE:
-        sigs = generate_break_retest_signals(df, rr_ratio=float(value),
-                                             scan_bars=len(df), symbol=symbol)
+def _resolve_br(df, sigs):
+    """Setups -> completed trades. SL before TP inside a bar, as elsewhere."""
+    if True:
         ts = df["timestamp"].astype("int64").values
         hi = df["high"].astype(float).values
         lo = df["low"].astype(float).values
@@ -374,11 +371,44 @@ def _break_retest(symbol, value, df):
                                    "outcome": "LOSS" if hit_sl else "WIN",
                                    "entry_ts": int(ts[i]), "exit_ts": int(ts[j])})
                     break
-        _BR_CACHE[key] = trades
+        return trades
+
+
+def _break_retest(symbol, value, df):
+    from app.strategies.break_retest_strategy import generate_break_retest_signals
+    key = (symbol, len(df), float(value))
+    if key not in _BR_CACHE:
+        _BR_CACHE[key] = _resolve_br(df, generate_break_retest_signals(
+            df, rr_ratio=float(value), scan_bars=len(df), symbol=symbol))
+    return _BR_CACHE[key]
+
+
+def _break_retest_filtered(symbol, value, df):
+    """Break & Retest keeping only trend-aligned AND decisive breaks.
+
+    Those two survived tools/br_filters.py's bar — better in BOTH halves of
+    history on more than one asset — where the other three (tested level, fast
+    retest, volatility) did not. This is the out-of-sample test of that
+    selection, and it inherits the multiplicity of the 15 filter tests that
+    produced it: treat a marginal result here as noise.
+    """
+    from app.strategies.break_retest_strategy import generate_break_retest_signals
+    key = (symbol, len(df), float(value), "filtered")
+    if key not in _BR_CACHE:
+        sigs = [s for s in generate_break_retest_signals(
+                    df, rr_ratio=float(value), scan_bars=len(df), symbol=symbol)
+                if s.get("br_aligned") == 1 and (s.get("br_break_atr") or 0) >= 0.5]
+        _BR_CACHE[key] = _resolve_br(df, sigs)
     return _BR_CACHE[key]
 
 
 ADAPTERS = {
+    "break_retest_filtered": {
+        "fn":      _break_retest_filtered,
+        "param":   "rr_ratio",
+        "values":  [2.0],
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
     "break_retest": {
         "fn":      _break_retest,
         "param":   "rr_ratio",

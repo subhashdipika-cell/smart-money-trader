@@ -82,6 +82,21 @@ def _atr(highs, lows, closes, period):
     return out
 
 
+def _break_meta(i, level, direction, highs, lows, closes, atr_i, lookback):
+    """Facts about the break itself, for selectivity research: how decisively
+    the bar closed beyond the level (in ATR), and how many times that level was
+    tested beforehand (a proxy for how much it matters)."""
+    beyond = (closes[i] - level) if direction == 1 else (level - closes[i])
+    tol = 0.25 * atr_i if atr_i else 0.0
+    touches = 0
+    for j in range(max(0, i - lookback), i):
+        if direction == 1 and abs(highs[j] - level) <= tol:
+            touches += 1
+        elif direction == -1 and abs(lows[j] - level) <= tol:
+            touches += 1
+    return {"break_atr": (beyond / atr_i) if atr_i else None, "touches": touches}
+
+
 def generate_break_retest_signals(df, rr_ratio: float = 2.0, lookback: int = 20,
                                   retest_window: int = 10, atr_period: int = 14,
                                   sl_buffer_atr: float = 0.5,
@@ -98,8 +113,18 @@ def generate_break_retest_signals(df, rr_ratio: float = 2.0, lookback: int = 20,
     atr = _atr(highs, lows, closes, atr_period)
     n = len(closes)
 
+    # EMA-200 trend reference, emitted as a diagnostic on each signal so
+    # selectivity filters can be evaluated without regenerating setups.
+    ema200 = [None] * n
+    k = 2 / 201
+    cur = closes[0]
+    for i, c in enumerate(closes):
+        cur = c if i == 0 else c * k + cur * (1 - k)
+        ema200[i] = cur
+
     out = []
     pend_dir, pend_level, pend_age = 0, None, 0
+    pend_meta = {}
 
     for i in range(lookback + atr_period + 1, n):
         a = atr[i]
@@ -137,8 +162,10 @@ def generate_break_retest_signals(df, rr_ratio: float = 2.0, lookback: int = 20,
         if pend_dir == 0 and fired is None:
             if closes[i] > res:
                 pend_dir, pend_level, pend_age = 1, res, 0
+                pend_meta = _break_meta(i, res, 1, highs, lows, closes, a, lookback)
             elif closes[i] < sup:
                 pend_dir, pend_level, pend_age = -1, sup, 0
+                pend_meta = _break_meta(i, sup, -1, highs, lows, closes, a, lookback)
 
         if fired and i >= n - scan_bars:
             side, entry, sl, tp = fired
@@ -161,5 +188,16 @@ def generate_break_retest_signals(df, rr_ratio: float = 2.0, lookback: int = 20,
                     "Retested and held",
                     f"SL {sl_buffer_atr}x ATR through level, {rr_ratio}R target",
                 ],
+                # Diagnostics for selectivity research (tools/br_filters.py).
+                # Ignored by the live engine; they just ride along.
+                "br_trend":       1 if closes[i] > ema200[i] else -1,
+                "br_aligned":     int((1 if closes[i] > ema200[i] else -1)
+                                      == (1 if side == "BUY" else -1)),
+                "br_break_atr":   pend_meta.get("break_atr"),
+                "br_touches":     pend_meta.get("touches"),
+                "br_retest_bars": pend_age,
+                "br_atr_rel":     (a / (sum(x for x in atr[max(0, i - 200):i] if x)
+                                        / max(1, len([x for x in atr[max(0, i - 200):i] if x])))
+                                   if i > 200 else None),
             })
     return out
