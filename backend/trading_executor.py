@@ -464,11 +464,28 @@ def _ist():
 
 _mt5_initialized = False
 
-def _connect():
+def _connect(_retry: bool = True):
     """
     Use the account ALREADY logged-in in MT5 terminal.
     Never calls mt5.login() or mt5.shutdown() — both break the terminal.
     User must login manually in MT5 to the correct account before using demo/live.
+
+    Self-heals a stale handle. The terminal can restart underneath us — after a
+    Modern-Standby suspend, a crash, or a manual relaunch — leaving this process
+    holding a handle to a terminal that no longer exists. Two failure shapes:
+
+      * account_info() returns None. The old code reset the flag and returned
+        failure, so the signal that DETECTED the staleness still died and only
+        some later call reconnected. On 2026-07-22 two signals failed with
+        retcode 10015 "Invalid price" for exactly this reason, and the account
+        panel sat on "Click Refresh to connect MT5" until someone hit refresh.
+      * account_info() still answers off a half-dead handle while order_send
+        fails 10015. terminal_info().connected catches that; account_info()
+        alone does not.
+
+    Either way we now re-initialise ONCE inside the same call and carry on,
+    rather than failing and hoping the next caller is luckier. shutdown() is
+    still never called — per the note above, it breaks the terminal.
     """
     global _mt5_initialized
     try:
@@ -491,9 +508,17 @@ def _connect():
             _mt5_initialized = True
 
         info = mt5.account_info()
-        if info is None:
-            print("[MT5] No active account — login in MT5 terminal first")
+        term = mt5.terminal_info()
+        alive = info is not None and term is not None and getattr(term, "connected", False)
+
+        if not alive:
             _mt5_initialized = False
+            if _retry:
+                # Re-enter once: the branch above will call initialize() again
+                # against whatever terminal is running NOW.
+                print("[MT5] stale handle — re-initialising")
+                return _connect(_retry=False)
+            print("[MT5] No active account — login in MT5 terminal first")
             return None, None
 
         return mt5, info
@@ -769,8 +794,32 @@ def _live(signal, sym_mt5, direction, entry, sl, tp, lot, mode):
             mt5_lib.symbol_select(sym, True)
             time.sleep(0.1)
 
-        order_type  = (mt5_lib.ORDER_TYPE_BUY_LIMIT if direction == "BUY"
-                       else mt5_lib.ORDER_TYPE_SELL_LIMIT)
+        # Pick LIMIT vs STOP from where the entry sits relative to market.
+        #
+        # This used to be hardcoded to LIMIT, which silently assumes every
+        # strategy enters on a RETRACE. Breakout strategies do the opposite:
+        # "Gold MACD Trend" and "BTC BOS Trend" enter BEYOND current price, in
+        # the direction of the move. A buy above market or a sell below it is
+        # not a valid limit order, so MT5 rejected them with retcode 10015
+        # "Invalid price" — every single time, for the life of those strategies.
+        # Observed 2026-07-22: XAUUSD BUY 4160.85 against ask 4143.99, and
+        # BTCUSDT SELL 65684.79 against bid 66256.28.
+        #
+        # A retrace entry is a LIMIT; a breakout entry is a STOP. Same intended
+        # price either way — only the order type differs.
+        tick = mt5_lib.symbol_info_tick(sym)
+        ref  = (tick.ask if direction == "BUY" else tick.bid) if tick else entry
+        if direction == "BUY":
+            order_type = (mt5_lib.ORDER_TYPE_BUY_LIMIT if entry <= ref
+                          else mt5_lib.ORDER_TYPE_BUY_STOP)
+        else:
+            order_type = (mt5_lib.ORDER_TYPE_SELL_LIMIT if entry >= ref
+                          else mt5_lib.ORDER_TYPE_SELL_STOP)
+        _kind = {mt5_lib.ORDER_TYPE_BUY_LIMIT: "BUY_LIMIT",
+                 mt5_lib.ORDER_TYPE_BUY_STOP: "BUY_STOP",
+                 mt5_lib.ORDER_TYPE_SELL_LIMIT: "SELL_LIMIT",
+                 mt5_lib.ORDER_TYPE_SELL_STOP: "SELL_STOP"}[order_type]
+        print(f"[MT5] entry {entry:.2f} vs market {ref:.2f} -> {_kind}")
         setup       = signal.get("setup", "1H FVG+EMA")
         expiry_ts   = _expiry_timestamp(setup)
         expiry_str  = datetime.fromtimestamp(expiry_ts, tz=timezone.utc).strftime("%H:%M UTC")
