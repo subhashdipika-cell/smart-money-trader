@@ -13,6 +13,7 @@ NOTE: MT5 bar times are BROKER-SERVER time (UTC+3 for Vantage). They are
 normalized to true UTC here — the outcome resolver compares candle
 timestamps against signal timestamps, and a 3h skew would corrupt fills.
 """
+import threading as _threading
 import time as _time
 
 import pandas as pd
@@ -31,25 +32,58 @@ _MT5_SYMBOL = {"BTCUSDT": "BTCUSD", "ETHUSDT": "ETHUSD", "XAUUSD": "XAUUSD+"}
 _MT5_TF = {}          # filled lazily once MetaTrader5 imports
 _MT5_OFFSET = {"ts": 0.0, "sec": None}   # broker-server clock vs UTC, cached 1h
 
+# FAIL-FAST guard. mt5.initialize() blocks for its full timeout when the
+# terminal is down/not logged in, and this is called on EVERY candle fetch —
+# on 2026-07-19 a disconnected Vantage terminal made every request retry it,
+# starving the FastAPI workers so the whole backend timed out (UI showed
+# OFFLINE while :8000 was still listening). Now: one thread may attempt a
+# connect at a time, and after a failure we skip MT5 entirely for
+# _MT5_RETRY_SECONDS so callers fall straight through to the Binance
+# fallback, which is what the MT5-primary design intended all along.
+_MT5_FAIL = {"ts": 0.0}
+_MT5_LOCK = _threading.Lock()
+# 5 min: a connect attempt against a dead/weekend terminal still costs ~10s
+# (initialize timeout), so probe rarely rather than every minute.
+_MT5_RETRY_SECONDS = 300.0
+
 
 def _mt5_lib():
-    """Connected MetaTrader5 module via trading_executor's pinned terminal,
-    or None. Imported lazily to avoid a circular import at module load."""
+    """Connected MetaTrader5 module via trading_executor's pinned terminal, or
+    None. Never blocks longer than one connect attempt, and backs off for
+    _MT5_RETRY_SECONDS after a failure so a dead terminal can't hang the app."""
+    if _time.time() - _MT5_FAIL["ts"] < _MT5_RETRY_SECONDS:
+        return None                      # recently failed — use Binance fallback
+    if not _MT5_LOCK.acquire(blocking=False):
+        return None                      # another thread is already connecting
     try:
         import sys, os
         sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
         from trading_executor import _connect
         mt5c, _ = _connect()
         if mt5c is None:
+            _MT5_FAIL["ts"] = _time.time()
             return None
         import MetaTrader5 as mt5_lib
+        # A live handle can still be stale (terminal closed/logged out) — a
+        # cheap terminal_info() confirms it before we rely on it.
+        try:
+            if mt5_lib.terminal_info() is None:
+                _MT5_FAIL["ts"] = _time.time()
+                return None
+        except Exception:
+            _MT5_FAIL["ts"] = _time.time()
+            return None
         if not _MT5_TF:
             _MT5_TF.update({"1m": mt5_lib.TIMEFRAME_M1, "5m": mt5_lib.TIMEFRAME_M5,
                             "15m": mt5_lib.TIMEFRAME_M15, "1h": mt5_lib.TIMEFRAME_H1,
                             "4h": mt5_lib.TIMEFRAME_H4, "1d": mt5_lib.TIMEFRAME_D1})
+        _MT5_FAIL["ts"] = 0.0            # healthy again
         return mt5_lib
     except Exception:
+        _MT5_FAIL["ts"] = _time.time()
         return None
+    finally:
+        _MT5_LOCK.release()
 
 
 def _server_offset_sec(mt5_lib) -> int:

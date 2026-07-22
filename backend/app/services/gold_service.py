@@ -72,7 +72,10 @@ def _fetch_gold_mt5_all():
     except ImportError:
         return None
     try:
-        if not mt5.initialize(path=r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe"):
+        # timeout: without it initialize() blocks ~60s when the terminal is
+        # unreachable, stalling the whole 3-min scan cycle.
+        if not mt5.initialize(path=r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe",
+                              timeout=10000):
             return None
         mt5.symbol_select(MT5_GOLD_SYMBOL, True)
         tf_map = {"1m": mt5.TIMEFRAME_M1, "5m": mt5.TIMEFRAME_M5,
