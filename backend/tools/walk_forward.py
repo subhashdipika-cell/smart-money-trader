@@ -382,7 +382,13 @@ ADAPTERS = {
     "break_retest": {
         "fn":      _break_retest,
         "param":   "rr_ratio",
-        "values":  [2.0],          # the requested 1:2; single value = no tuning
+        # 2.0 was the original spec. The others probe whether ANY target
+        # distance clears breakeven — 2.25 is where 1:2's observed ~31% hit
+        # rate would break even IF the win rate held, which it does not: a
+        # wider target is hit less often, so raising rr moves the bar it has
+        # to clear. Walk-forward picks per fold on train data only, so this
+        # measures the choice rather than flattering it.
+        "values":  [2.0, 2.25, 2.5, 3.0],
         "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
     },
     "donchian_ls": {

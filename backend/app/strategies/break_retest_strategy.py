@@ -37,9 +37,26 @@ through IntelliTrade's engine (identical logic):
 
 At 1:2 the breakeven win rate is 33.3% and this lands near 31% on every asset,
 so it loses across the board. A 2000-bar slice showed BTC at PF 1.32, which is
-what small samples do — the full history says 0.88. It is registered here so it
-can be backtested and tuned from the UI, and is NOT wired into
-asset_strategy_config.json. Do not enable it without evidence from
+what small samples do — the full history says 0.88.
+
+RAISING THE TARGET DOES NOT RESCUE IT, and this is the useful finding. The
+obvious fix is to widen rr until the observed hit rate clears breakeven — 1:2's
+~31% would break even at 2.25. It does not work, because a wider target is hit
+less often and the win rate falls in lockstep with the bar it has to clear:
+
+    rr        2.00          2.25          2.50          3.00     (win% / breakeven%)
+    BTC    31.2 / 33.3   28.6 / 30.8   25.9 / 28.6   23.2 / 25.0
+    GOLD   31.5 / 33.3   29.1 / 30.8   27.5 / 28.6   24.7 / 25.0
+    ETH    30.3 / 33.3   27.2 / 30.8   25.0 / 28.6   21.6 / 25.0
+
+The shortfall stays near 2 points at every distance, and gross return per trade
+is flat across rr (BTC -0.02% to -0.03%). The market prices the
+target-distance tradeoff close to fairly, so this setup has no target at which
+it is positive — the edge is missing, not mis-sized. Gold at rr=3.0 comes
+closest (24.7 vs 25.0, -0.006%/trade out of sample) and is still negative.
+
+Registered so it can be backtested and tuned from the UI; NOT wired into
+asset_strategy_config.json. Do not enable without fresh evidence from
 tools/walk_forward.py.
 """
 from __future__ import annotations
