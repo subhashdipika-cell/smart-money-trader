@@ -149,10 +149,34 @@ def _gold_friday_loop():
         _time.sleep(CHECK_INTERVAL)
 
 
+def _keep_awake_loop():
+    """Hold the machine out of Modern Standby while the engine runs.
+
+    The 2026-07-21/22 outages: the laptop's on-battery sleep timer (10 min)
+    suspended the fleet dozens of times, so 1h-bar cross events closed and
+    vanished unseen. Same pattern the AlphaEdge strategy-lab already uses.
+    ES_SYSTEM_REQUIRED keeps the system awake; the display may still sleep.
+    Process-scoped: released automatically when the backend exits.
+    """
+    import ctypes
+    import time as _time
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+    while True:
+        try:
+            ctypes.windll.kernel32.SetThreadExecutionState(
+                ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+        except Exception as e:
+            print(f"[KeepAwake] failed: {e}")
+            return
+        _time.sleep(60)   # re-assert — cheap, and survives odd resume states
+
+
 @app.on_event("startup")
 def startup_event():
     if os.getenv("START_LIVE_ENGINE", "true").lower() != "true":
         return
+    Thread(target=_keep_awake_loop, daemon=True, name="keep-awake").start()
+    print("[Startup] Keep-awake ON — system held out of standby while engine runs.")
     Thread(target=start_live_signal_engine, daemon=True).start()
     Thread(target=_order_expiry_loop, daemon=True).start()
     Thread(target=_ema_exit_loop, daemon=True).start()

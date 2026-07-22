@@ -563,12 +563,17 @@ def append_to_log(signal_entry):
 
 # ── Duplicate guard ───────────────────────────────────────────────────────────
 
-def _already_in_log(symbol, signal_type, entry_price, cooldown_secs=None):
+def _already_in_log(symbol, signal_type, entry_price, cooldown_secs=None,
+                    strategy_tag=None, trigger_bar_ts=None):
     """
-    Duplicate guard — checks TWO conditions:
+    Duplicate guard — checks THREE conditions:
     1. Same symbol + direction + entry within cooldown window
     2. Same symbol + direction + entry within same calendar day (IST)
        regardless of cooldown — prevents restart-bypass duplicates
+    3. Same symbol + strategy + trigger bar — the lookback window in
+       generate_live_signals re-detects a past-bar cross on every cycle, and
+       price can drift beyond the entry tolerance within an hour, so the
+       trigger bar's own identity is the only reliable dedup key.
     """
     if cooldown_secs is None:
         cooldown_secs = COOLDOWN_SECONDS
@@ -582,6 +587,13 @@ def _already_in_log(symbol, signal_type, entry_price, cooldown_secs=None):
 
     for s in log:
         if s.get("symbol")  != symbol:  continue
+
+        # Check 3: same strategy fired from the same trigger bar (any direction)
+        if (trigger_bar_ts and strategy_tag
+                and s.get("strategy_tag") == strategy_tag
+                and s.get("trigger_bar_ts") == trigger_bar_ts):
+            return True
+
         if s.get("signal")  != signal_type: continue
         if s.get("outcome") == "EXPIRED": continue  # expired signals don't block
 
@@ -1110,7 +1122,9 @@ def check_symbol(symbol, sentiment, state):
             return
 
         # ── Gate 2: log duplicate check ───────────────────────────────────────
-        if _already_in_log(symbol, signal_type, entry_price, dynamic_cd):
+        if _already_in_log(symbol, signal_type, entry_price, dynamic_cd,
+                           strategy_tag=latest.get("strategy_tag"),
+                           trigger_bar_ts=latest.get("trigger_bar_ts")):
             print(f"[{symbol}] Duplicate found in log within cooldown window — skipping.")
             # Re-sync state file to prevent this check firing every cycle
             _update_symbol_state(state, symbol, signal_id, now - COOLDOWN_SECONDS + 300)
@@ -1256,6 +1270,7 @@ def check_symbol(symbol, sentiment, state):
             # strategy ever firing.
             "setup":         latest.get("setup") or latest.get("strategy_tag") or "unlabeled",
             "strategy_tag":  latest.get("strategy_tag") or "unlabeled",
+            "trigger_bar_ts": latest.get("trigger_bar_ts"),
             "outcome":       "OPEN",
             "points":        None,
             "sentiment":     sentiment.get("overall_label", "--"),

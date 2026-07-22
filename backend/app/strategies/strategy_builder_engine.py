@@ -640,7 +640,19 @@ def generate_live_signals(definition: dict, data: dict, symbol: str) -> list:
     long_ok, short_ok, ctx = evaluate_conditions(definition, df)
     i = len(df) - 1                       # most recent bar
 
-    direction = 1 if long_ok[i] else (-1 if short_ok[i] else 0)
+    # Trigger window: the forming bar PLUS the last 2 completed bars.
+    # Cross conditions are true on exactly one bar; checking only bar i meant
+    # any scan gap longer than one bar (laptop standby, backend restart)
+    # silently lost the event forever — the 2026-07-21/22 gold rally produced
+    # zero signals this way. A recent completed-bar trigger still counts,
+    # provided price hasn't already run away from it.
+    LOOKBACK_BARS = 2
+    direction, trigger_idx = 0, i
+    for j in range(i, max(i - LOOKBACK_BARS, 0) - 1, -1):
+        d = 1 if long_ok[j] else (-1 if short_ok[j] else 0)
+        if d != 0:
+            direction, trigger_idx = d, j
+            break
     if direction == 0:
         return []
 
@@ -654,6 +666,14 @@ def generate_live_signals(definition: dict, data: dict, symbol: str) -> list:
     sl_dist = sl_value * atr_now if sl_type == "atr" else sl_value
     if sl_dist <= 0:
         return []
+
+    # Late-trigger guard: only chase a past-bar cross while price is still
+    # near it. Beyond 0.75 ATR the move is gone — skip rather than chase.
+    if trigger_idx < i:
+        trigger_close = float(df["close"].iloc[trigger_idx])
+        if abs(entry - trigger_close) > 0.75 * atr_now:
+            return []
+
     sl = entry - direction * sl_dist
     tp = entry + direction * sl_dist * rr
 
@@ -665,6 +685,9 @@ def generate_live_signals(definition: dict, data: dict, symbol: str) -> list:
     return [{
         "signal":        "BUY" if direction == 1 else "SELL",
         "index":         i,
+        # Identity of the bar that actually triggered — the duplicate guard
+        # keys on this so a lookback re-detection can never send twice.
+        "trigger_bar_ts": int(df["timestamp"].iloc[trigger_idx]),
         "entry":         round(entry, 4),
         "sl":            round(sl, 4),
         "tp":            round(tp, 4),
