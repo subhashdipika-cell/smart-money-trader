@@ -284,7 +284,72 @@ def _mom(symbol, value, df):
         "mom")(symbol, value, df, "rsi_high")
 
 
+# ── Donchian breakout ────────────────────────────────────────────────────
+# Not a live SMT strategy — a lead from tools/trend_benchmark.py, where
+# Donchian 300/150 long/short on ETH returned +18.4%/yr at +0.90%/trade, the
+# best per-trade figure in that table. The hypothesis is that ETH's two-year
+# 45% decline is capturable by a rule that can SHORT, which nothing live can:
+# every current strategy is long-biased.
+#
+# The obvious confound is that a short-capable rule will flatter itself in any
+# downtrend. Hence the long-only control below: if the edge is real trend
+# capture rather than a one-directional bet on a falling market, the long/short
+# version should beat long-only ACROSS folds, not just in aggregate.
+#
+# Position-based, so a "trade" is one position held between flips.
+def _donchian_trades(symbol, value, df, allow_short):
+    import pandas as pd
+    lb = int(value)
+    ex = max(10, lb // 2)
+    high = df["high"].astype(float)
+    low = df["low"].astype(float)
+    close = df["close"].astype(float).values
+    ts = df["timestamp"].astype("int64").values
+    # shift(1): the breakout level must come from bars BEFORE the current one,
+    # or the rule peeks at the bar it is deciding on.
+    roll_hi = high.rolling(lb).max().shift(1).values
+    roll_lo = low.rolling(ex).min().shift(1).values
+
+    trades, pos, e_px, e_ts = [], 0, None, None
+    for i in range(lb + 1, len(close)):
+        want = pos
+        if roll_hi[i] == roll_hi[i] and close[i] > roll_hi[i]:
+            want = 1
+        elif roll_lo[i] == roll_lo[i] and close[i] < roll_lo[i]:
+            want = -1 if allow_short else 0
+        if want == pos:
+            continue
+        if pos != 0:
+            pts = (close[i] - e_px) * pos
+            trades.append({"signal": "BUY" if pos > 0 else "SELL",
+                           "entry": e_px, "points": pts,
+                           "outcome": "WIN" if pts > 0 else "LOSS",
+                           "entry_ts": int(e_ts), "exit_ts": int(ts[i])})
+        pos, e_px, e_ts = want, close[i], ts[i]
+    return trades
+
+
+def _donch_ls(symbol, value, df):
+    return _donchian_trades(symbol, value, df, allow_short=True)
+
+
+def _donch_long(symbol, value, df):
+    return _donchian_trades(symbol, value, df, allow_short=False)
+
+
 ADAPTERS = {
+    "donchian_ls": {
+        "fn":      _donch_ls,
+        "param":   "lookback",
+        "values":  [200, 300, 400, 500],
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
+    "donchian_long": {
+        "fn":      _donch_long,
+        "param":   "lookback",
+        "values":  [200, 300, 400, 500],
+        "symbols": ["BTCUSDT", "ETHUSDT", "XAUUSD"],
+    },
     "atr_trailing": {
         "fn":      _atr,
         "param":   "atr_mult",
