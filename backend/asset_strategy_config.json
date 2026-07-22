@@ -8,6 +8,7 @@
     "eth_momentum"
   ],
   "Gold": [
+    "ATR_Trailing",
     "h4_break_retest",
     "custom_1781159562198_1",
     "custom_1781159562213_4"
