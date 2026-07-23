@@ -1053,6 +1053,21 @@ def get_trades_log():
                                 t["realized_usd"] = _pos_profits.get(pos_id)
                             if t.get("mt5_state") not in ("active", "pending"):
                                 t["mt5_state"] = "closed"
+                                # ...and close the STORED status too. This line
+                                # was missing, so a trade closed BY MT5 (SL/TP
+                                # hit) kept status="open" forever: only the
+                                # EMA20-exit path — where SMT closes the
+                                # position itself — ever wrote "closed". The
+                                # branch below, for positions NOT in our log,
+                                # already creates them with status="closed",
+                                # so known tickets were the odd case out.
+                                # Observed 2026-07-22: four rows showing "open"
+                                # with zero open orders/positions in MT5, three
+                                # of them from June 5-6.
+                                if t.get("status") == "open":
+                                    t["status"] = "closed"
+                                    t["close_time"] = t.get("close_time") or int(
+                                        time.time() * 1000)
                             # Telegram alert on trade close (once per ticket).
                             _maybe_notify_close(tk, t.get("symbol"), t.get("direction"),
                                                 _pos_profits.get(pos_id))
@@ -1083,6 +1098,27 @@ def get_trades_log():
                 })
     except Exception as _e:
         print(f"[MT5 History] Could not fetch deal history: {_e}")
+
+    # ── Final sweep: rows stuck "open" that MT5 no longer knows about ────────
+    # By this point anything that filled and closed WITHIN the 30-day deal
+    # window above has been reconciled. A row still "open" with mt5_state
+    # "closed" is no longer live in MT5, so it cannot legitimately stay open —
+    # it either expired unfilled, or it filled-and-closed longer ago than the
+    # reconcile window reaches back. We can't always tell which: MT5 keeps no
+    # deal history for an expired order, and a fill older than 30 days has
+    # deals we didn't fetch. So resolve the STATUS (the bug — these sat "open"
+    # for six weeks) but be honest about which case it is rather than assert a
+    # P&L we don't have. A precise label needs a per-ticket
+    # history_deals_get(position=ticket), left for the caller that wants it.
+    for t in trades:
+        if (t.get("status") == "open"
+                and t.get("mt5_state") == "closed"
+                and t.get("realized_usd") is None):
+            t["status"] = "closed_untracked"
+            t["close_time"] = t.get("close_time") or int(time.time() * 1000)
+            print(f"[MT5 Sync] #{t.get('ticket')} {t.get('symbol')} was stuck "
+                  f"'open' but is gone from MT5 — resolved (filled >30d ago or "
+                  f"expired unfilled; P&L not in the 30-day window)")
 
     return trades
 
