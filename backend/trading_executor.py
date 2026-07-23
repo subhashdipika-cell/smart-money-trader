@@ -846,6 +846,28 @@ def _live(signal, sym_mt5, direction, entry, sl, tp, lot, mode):
         }
 
         result = mt5_lib.order_send(request)
+
+        # order_send returns None when the terminal drops the IPC connection
+        # between our connect-check and the send — a transient the
+        # Modern-Standby suspend makes routine. The old code went straight to
+        # result.retcode and crashed with "'NoneType' object has no attribute
+        # 'retcode'", which (a) told us nothing and (b) lost the signal with no
+        # retry. Observed 2026-07-23 00:00 UTC on a gold BUY. Re-establish the
+        # handle (self-healing _connect) and send once more before giving up.
+        if result is None:
+            err = mt5_lib.last_error()
+            print(f"[MT5] order_send returned None (last_error={err}) — "
+                  f"reconnecting and retrying once")
+            mt5_retry, _ = _connect()
+            if mt5_retry is not None:
+                mt5_retry.symbol_select(sym, True)
+                result = mt5_retry.order_send(request)
+            if result is None:
+                err = mt5_lib.last_error()
+                print(f"[MT5] ❌ order_send still None after retry: {err}")
+                return {"success": False,
+                        "error": f"order_send None (terminal disconnected?): {err}"}
+
         if result.retcode == mt5_lib.TRADE_RETCODE_DONE:
             print(f"[MT5] ✅ Order placed! Ticket: #{result.order}")
             trade = {
