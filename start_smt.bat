@@ -82,7 +82,7 @@ if "%BACKEND_STATE%"=="ready" (
 ) else (
     echo Starting backend...
     if /i "%TRADING_LAB_HIDDEN%"=="1" (
-        start "" /b "%VENV%\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir "%BACKEND%" 1^>^>"%LOGDIR%\backend.log" 2^>^&1
+        start "" /b "%VENV%\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir "%BACKEND%" >>"%LOGDIR%\backend.log" 2>&1
     ) else (
         start "SMT Backend" cmd.exe /k "cd /d ""%BACKEND%"" && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
     )
@@ -95,13 +95,13 @@ if "%FRONTEND_STATE%"=="ready" (
 ) else (
     echo Starting frontend...
     if /i "%TRADING_LAB_HIDDEN%"=="1" (
-        start "" /b cmd.exe /d /c "cd /d ""%FRONTEND%"" && npm.cmd run dev 1^>^>""%LOGDIR%\frontend.log"" 2^>^&1"
+        start "" /b cmd.exe /d /c "cd /d ""%FRONTEND%"" && npm.cmd run dev -- --host 127.0.0.1 --port 5173 >>""%LOGDIR%\frontend.log"" 2>&1"
     ) else (
         start "SMT Frontend" cmd.exe /k "cd /d ""%FRONTEND%"" && npm.cmd run dev"
     )
 )
 
-powershell.exe -NoLogo -NoProfile -Command "$deadline=(Get-Date).AddSeconds(60); do { try { $r=Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:5173/' -TimeoutSec 2; if($r.StatusCode -eq 200){Start-Process 'http://127.0.0.1:5173/'; exit 0} } catch {}; Start-Sleep -Milliseconds 500 } while((Get-Date)-lt $deadline); exit 1"
+powershell.exe -NoLogo -NoProfile -Command "$deadline=(Get-Date).AddSeconds(60); do { try { $r=Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:5173/' -TimeoutSec 2; if($r.StatusCode -eq 200){Start-Process 'http://localhost:5173/'; exit 0} } catch {}; Start-Sleep -Milliseconds 500 } while((Get-Date)-lt $deadline); exit 1"
 if errorlevel 1 (
     echo [!] Frontend did not become ready within 60 seconds.
     exit /b 1
