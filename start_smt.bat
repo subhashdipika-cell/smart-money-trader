@@ -51,7 +51,7 @@ if errorlevel 1 (
 :: Reuse our own healthy listeners. Never kill an unrelated application merely
 :: because it owns one of SMT's configured ports.
 set "BACKEND_STATE=missing"
-powershell.exe -NoLogo -NoProfile -Command "$c=Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if(-not $c){exit 2}; $cmd=(Get-CimInstance Win32_Process -Filter \"ProcessId=$($c.OwningProcess)\" -ErrorAction SilentlyContinue).CommandLine; if($cmd -match 'smart-money-trader.+uvicorn app[.]main:app'){exit 0}; exit 1" >nul 2>&1
+powershell.exe -NoLogo -NoProfile -Command "$c=Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if(-not $c){exit 2}; $p=Get-CimInstance Win32_Process -Filter \"ProcessId=$($c.OwningProcess)\" -ErrorAction SilentlyContinue; $cmd=''; for($i=0;$p -and $i -lt 5;$i++){ $cmd += ' ' + $p.CommandLine; $p=Get-CimInstance Win32_Process -Filter \"ProcessId=$($p.ParentProcessId)\" -ErrorAction SilentlyContinue }; if($cmd -match 'smart-money-trader.+uvicorn app[.]main:app'){exit 0}; exit 1" >nul 2>&1
 if not errorlevel 1 set "BACKEND_STATE=ready"
 if errorlevel 1 if not errorlevel 2 set "BACKEND_STATE=conflict"
 
@@ -88,7 +88,7 @@ if "%BACKEND_STATE%"=="ready" (
     )
 )
 
-timeout /t 4 /nobreak >nul
+ping 127.0.0.1 -n 5 >nul
 
 if "%FRONTEND_STATE%"=="ready" (
     echo Frontend is already running.
@@ -101,11 +101,21 @@ if "%FRONTEND_STATE%"=="ready" (
     )
 )
 
-powershell.exe -NoLogo -NoProfile -Command "$deadline=(Get-Date).AddSeconds(60); do { try { $r=Invoke-WebRequest -UseBasicParsing -Uri 'http://localhost:5173/' -TimeoutSec 2; if($r.StatusCode -eq 200){Start-Process 'http://localhost:5173/'; exit 0} } catch {}; Start-Sleep -Milliseconds 500 } while((Get-Date)-lt $deadline); exit 1"
-if errorlevel 1 (
+set /a "FRONTEND_READY_TRIES=0"
+:wait_for_frontend
+curl.exe --fail --silent --show-error --max-time 2 "http://127.0.0.1:5173/" >nul 2>&1
+if not errorlevel 1 goto frontend_ready
+set /a "FRONTEND_READY_TRIES+=1"
+if %FRONTEND_READY_TRIES% GEQ 60 (
     echo [!] Frontend did not become ready within 60 seconds.
     exit /b 1
 )
+ping 127.0.0.1 -n 2 >nul
+goto wait_for_frontend
+
+:frontend_ready
+
+start "" "http://127.0.0.1:5173/"
 
 echo.
 echo SMT is running!
