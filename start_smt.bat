@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableExtensions
 title Smart Money Trader
 color 0A
 cls
@@ -8,16 +9,18 @@ echo   SMART MONEY TRADER v1.0
 echo  ============================================
 echo.
 
-set ROOT=%~dp0
-set BACKEND=%ROOT%backend
-set FRONTEND=%ROOT%frontend
-set VENV=%BACKEND%\.venv
+set "ROOT=%~dp0"
+set "BACKEND=%ROOT%backend"
+set "FRONTEND=%ROOT%frontend"
+set "VENV=%BACKEND%\.venv"
+set "LOGDIR=%ROOT%work\launcher-logs"
+if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 
 :: Check Python
-python --version >nul 2>&1
-if %errorLevel% neq 0 (
+python.exe --version >nul 2>&1
+if errorlevel 1 (
     echo [!] Python not found in PATH.
-    pause
+    if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
     exit /b 1
 )
 
@@ -29,30 +32,77 @@ if not exist "%VENV%\Scripts\python.exe" (
     "%VENV%\Scripts\python.exe" -m pip install --quiet --upgrade pip
     "%VENV%\Scripts\python.exe" -m pip install --quiet -r "%BACKEND%\requirements.txt"
     "%VENV%\Scripts\python.exe" -m pip install --quiet MetaTrader5
+    if errorlevel 1 (
+        echo [!] Dependency installation failed.
+        if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
+        exit /b 1
+    )
     echo [Setup] Done!
     echo.
 )
 
-:: Kill any already-running SMT windows so this acts as a restart too
-taskkill /fi "WindowTitle eq SMT Backend*" /f >nul 2>&1
-taskkill /fi "WindowTitle eq SMT Frontend*" /f >nul 2>&1
-timeout /t 1 /nobreak >nul
+where npm.cmd >nul 2>&1
+if errorlevel 1 (
+    echo [!] npm.cmd was not found in PATH.
+    if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
+    exit /b 1
+)
 
-echo Starting backend...
-start "SMT Backend" cmd /k "cd /d %BACKEND% && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload"
+:: Reuse our own healthy listeners. Never kill an unrelated application merely
+:: because it owns one of SMT's configured ports.
+set "BACKEND_STATE=missing"
+powershell.exe -NoLogo -NoProfile -Command "$c=Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if(-not $c){exit 2}; $cmd=(Get-CimInstance Win32_Process -Filter \"ProcessId=$($c.OwningProcess)\" -ErrorAction SilentlyContinue).CommandLine; if($cmd -match 'smart-money-trader.+uvicorn app[.]main:app'){exit 0}; exit 1" >nul 2>&1
+if not errorlevel 1 set "BACKEND_STATE=ready"
+if errorlevel 1 if not errorlevel 2 set "BACKEND_STATE=conflict"
+
+set "FRONTEND_STATE=missing"
+powershell.exe -NoLogo -NoProfile -Command "$c=Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1; if(-not $c){exit 2}; $cmd=(Get-CimInstance Win32_Process -Filter \"ProcessId=$($c.OwningProcess)\" -ErrorAction SilentlyContinue).CommandLine; if($cmd -match 'smart-money-trader.+vite'){exit 0}; exit 1" >nul 2>&1
+if not errorlevel 1 set "FRONTEND_STATE=ready"
+if errorlevel 1 if not errorlevel 2 set "FRONTEND_STATE=conflict"
+
+if "%BACKEND_STATE%"=="conflict" (
+    echo [!] Port 8000 is occupied by another application. Nothing was stopped.
+    exit /b 1
+)
+if "%FRONTEND_STATE%"=="conflict" (
+    echo [!] Port 5173 is occupied by another application. Nothing was stopped.
+    exit /b 1
+)
+
+if "%BACKEND_STATE%"=="ready" (
+    echo Backend is already running.
+) else (
+    echo Starting backend...
+    if /i "%TRADING_LAB_HIDDEN%"=="1" (
+        start "" /b "%VENV%\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir "%BACKEND%" 1^>^>"%LOGDIR%\backend.log" 2^>^&1
+    ) else (
+        start "SMT Backend" cmd.exe /k "cd /d ""%BACKEND%"" && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+    )
+)
 
 timeout /t 4 /nobreak >nul
 
-echo Starting frontend...
-start "SMT Frontend" cmd /k "cd /d %FRONTEND% && npm run dev"
+if "%FRONTEND_STATE%"=="ready" (
+    echo Frontend is already running.
+) else (
+    echo Starting frontend...
+    if /i "%TRADING_LAB_HIDDEN%"=="1" (
+        start "" /b cmd.exe /d /c "cd /d ""%FRONTEND%"" && npm.cmd run dev 1^>^>""%LOGDIR%\frontend.log"" 2^>^&1"
+    ) else (
+        start "SMT Frontend" cmd.exe /k "cd /d ""%FRONTEND%"" && npm.cmd run dev"
+    )
+)
 
-timeout /t 3 /nobreak >nul
-
-start http://localhost:5173
+powershell.exe -NoLogo -NoProfile -Command "$deadline=(Get-Date).AddSeconds(60); do { try { $r=Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:5173/' -TimeoutSec 2; if($r.StatusCode -eq 200){Start-Process 'http://127.0.0.1:5173/'; exit 0} } catch {}; Start-Sleep -Milliseconds 500 } while((Get-Date)-lt $deadline); exit 1"
+if errorlevel 1 (
+    echo [!] Frontend did not become ready within 60 seconds.
+    exit /b 1
+)
 
 echo.
 echo SMT is running!
 echo Backend:  http://127.0.0.1:8000
 echo Frontend: http://localhost:5173
 echo.
-pause
+if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
+endlocal
