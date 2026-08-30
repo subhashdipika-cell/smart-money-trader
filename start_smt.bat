@@ -69,6 +69,14 @@ if "%FRONTEND_STATE%"=="conflict" (
     exit /b 1
 )
 
+if /i "%~1"=="--check" (
+    echo Smart Money Trader launcher check passed.
+    echo Backend port state: %BACKEND_STATE%
+    echo Frontend port state: %FRONTEND_STATE%
+    echo Hidden-launch mode: %TRADING_LAB_HIDDEN%
+    exit /b 0
+)
+
 if "%BACKEND_STATE%"=="ready" (
     echo Backend is already running.
 ) else (
@@ -105,4 +113,4 @@ echo Backend:  http://127.0.0.1:8000
 echo Frontend: http://localhost:5173
 echo.
 if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
-endlocal
+endlocal & exit /b 0
