@@ -124,12 +124,12 @@ function readStoredAccount() {
 function getEngineErrorMessage(error) {
   if (error?.response?.status === 503)
     return "Smart-money engine is running, but Binance market data is unavailable."
-  return "Waiting for the smart-money engine at 127.0.0.1:8000 or 127.0.0.1:8001"
+  return "Smart-money engine is offline at 127.0.0.1:8000 and 127.0.0.1:8001. The TradingView chart remains externally live."
 }
 
 function getEngineStatusLabel(error, lastUpdated) {
   if (!error) return lastUpdated ? "Live" : "Checking"
-  return error.includes("Binance market data") ? "No data" : "Offline"
+  return error.includes("Binance market data") ? "No data" : "Engine offline · Chart live"
 }
 
 async function fetchEngine(path, validate, timeout) {
