@@ -13,32 +13,30 @@ set "ROOT=%~dp0"
 set "BACKEND=%ROOT%backend"
 set "FRONTEND=%ROOT%frontend"
 set "VENV=%BACKEND%\.venv"
+set "RUNTIME=%ROOT%runtime"
+set "PY=%RUNTIME%\python.exe"
 set "LOGDIR=%ROOT%work\launcher-logs"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
+:: Keep Python's output safe when this launcher is started from a legacy
+:: Windows console code page.  SMT logs include diagnostics with Unicode.
+set "PYTHONUTF8=1"
 
-:: Check Python
-python.exe --version >nul 2>&1
-if errorlevel 1 (
-    echo [!] Python not found in PATH.
+:: Prefer SMT's self-contained runtime so a removed or upgraded system Python
+:: cannot break the dashboard.  Retain the old virtual environment only as a
+:: migration fallback for developer checkouts that predate the portable runtime.
+if not exist "%PY%" if exist "%VENV%\Scripts\python.exe" set "PY=%VENV%\Scripts\python.exe"
+if not exist "%PY%" (
+    echo [!] SMT Python runtime not found at "%RUNTIME%".
+    echo     Restore the runtime or run the installer setup.
     if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
     exit /b 1
 )
 
-:: Create venv if missing
-if not exist "%VENV%\Scripts\python.exe" (
-    echo [Setup] Creating virtual environment...
-    python -m venv "%VENV%"
-    echo [Setup] Installing packages - please wait...
-    "%VENV%\Scripts\python.exe" -m pip install --quiet --upgrade pip
-    "%VENV%\Scripts\python.exe" -m pip install --quiet -r "%BACKEND%\requirements.txt"
-    "%VENV%\Scripts\python.exe" -m pip install --quiet MetaTrader5
-    if errorlevel 1 (
-        echo [!] Dependency installation failed.
-        if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
-        exit /b 1
-    )
-    echo [Setup] Done!
-    echo.
+"%PY%" --version >nul 2>&1
+if errorlevel 1 (
+    echo [!] SMT Python runtime cannot start.
+    if /i not "%TRADING_LAB_HIDDEN%"=="1" pause
+    exit /b 1
 )
 
 where npm.cmd >nul 2>&1
@@ -82,9 +80,9 @@ if "%BACKEND_STATE%"=="ready" (
 ) else (
     echo Starting backend...
     if /i "%TRADING_LAB_HIDDEN%"=="1" (
-        start "" /b "%VENV%\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir "%BACKEND%" >>"%LOGDIR%\backend.log" 2>&1
+        start "" /b "%PY%" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir "%BACKEND%" >>"%LOGDIR%\backend.log" 2>&1
     ) else (
-        start "SMT Backend" cmd.exe /k "cd /d ""%BACKEND%"" && .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
+        start "SMT Backend" cmd.exe /k "cd /d ""%BACKEND%"" && ""%PY%"" -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
     )
 )
 
