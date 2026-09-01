@@ -15,6 +15,7 @@ set "FRONTEND=%ROOT%frontend"
 set "VENV=%BACKEND%\.venv"
 set "RUNTIME=%ROOT%runtime"
 set "PY=%RUNTIME%\python.exe"
+set "MT5_TERMINAL=C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe"
 set "LOGDIR=%ROOT%work\launcher-logs"
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 :: Keep Python's output safe when this launcher is started from a legacy
@@ -73,6 +74,18 @@ if /i "%~1"=="--check" (
     echo Frontend port state: %FRONTEND_STATE%
     echo Hidden-launch mode: %TRADING_LAB_HIDDEN%
     exit /b 0
+)
+
+:: Start (or foreground) SMT's dedicated Vantage terminal before its backend
+:: connects.  MetaTrader5's implicit launch may be background-only after a
+:: terminal crash, which leaves the user without a visible login window.
+if exist "%MT5_TERMINAL%" (
+    echo Ensuring Vantage MT5 terminal is open...
+    start "SMT MT5 Terminal" "%MT5_TERMINAL%"
+    ping 127.0.0.1 -n 3 >nul
+) else (
+    echo [!] Vantage MT5 terminal not found at "%MT5_TERMINAL%".
+    echo     The dashboard will start, but MT5 data and DEMO execution need the terminal.
 )
 
 if "%BACKEND_STATE%"=="ready" (
