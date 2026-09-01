@@ -117,7 +117,13 @@ def _poll_loop():
 
         # ── Step 2: call initialize() if not already done ────────────────────
         #    (Never login/shutdown — reuse the terminal session)
-        if not mt5.initialize(path=r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe"):
+        # Bound terminal IPC during backend startup.  Without this timeout a
+        # disconnected terminal can hold the process in FastAPI startup for
+        # about a minute, leaving the dashboard unable to connect.
+        if not mt5.initialize(
+            path=r"C:\Program Files\Vantage Markets MT5 Terminal\terminal64.exe",
+            timeout=10000,
+        ):
             err = mt5.last_error()
             _update_cache(
                 status="connecting",

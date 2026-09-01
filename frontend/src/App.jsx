@@ -275,6 +275,7 @@ function App() {
   const [historyError, setHistoryError]         = useState("")
   const [lastUpdated, setLastUpdated]           = useState(null)
   const [livePrices, setLivePrices]             = useState({})
+  const [stoppingEngine, setStoppingEngine]     = useState(false)
 
   const market         = MARKETS[chartMarketId] || MARKETS[account?.marketId] || MARKETS[setupForm.marketId] || MARKETS.BTC
   const isAccountReady = Boolean(
@@ -468,6 +469,28 @@ function App() {
     setError("")
   }
 
+  const handleStopEngine = async () => {
+    const confirmed = window.confirm(
+      "Stop the SMT trading engine? This does not close MT5 or any existing positions."
+    )
+    if (!confirmed) return
+
+    setStoppingEngine(true)
+    try {
+      const response = await fetch(`${ENGINE_BASE}/system/stop`, {
+        method: "POST",
+        headers: { "X-SMT-Shutdown": "confirm" },
+        signal: AbortSignal.timeout(5000),
+      })
+      if (!response.ok) throw new Error("Shutdown request was rejected")
+      setError("SMT engine stopped. MT5 and existing positions remain open; close this dashboard tab when finished.")
+      setLastUpdated(null)
+    } catch {
+      setStoppingEngine(false)
+      setError("Unable to stop SMT from the dashboard. The engine may already be offline.")
+    }
+  }
+
   // License gate: block the app until activated (backend reachable + not activated)
   if (license && license.activated === false) {
     return <Activation status={license} onActivated={setLicense} />
@@ -634,6 +657,19 @@ function App() {
             }} />
             {engineStatusLabel}
           </div>
+          <button
+            type="button"
+            onClick={handleStopEngine}
+            disabled={stoppingEngine}
+            title="Stop the SMT engine without closing MT5 or its positions"
+            style={{
+              padding: "6px 10px", borderRadius: "8px", cursor: stoppingEngine ? "wait" : "pointer",
+              border: "1px solid #a62b36", background: "rgba(248,81,73,0.12)",
+              color: "#ff7b72", fontSize: "12px", fontWeight: 700, opacity: stoppingEngine ? 0.6 : 1,
+            }}
+          >
+            {stoppingEngine ? "Stopping…" : "Stop engine"}
+          </button>
         </div>
       </header>
 

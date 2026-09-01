@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
@@ -33,6 +33,16 @@ from app.services.sentiment_service  import get_sentiment
 from app.services.events_service     import get_market_events
 
 app = FastAPI()
+
+# The dashboard may request a graceful engine stop.  It is deliberately limited
+# to the local SMT dashboard origins and a non-simple request header so a web
+# page cannot silently stop the trading engine through a browser request.
+_DASHBOARD_SHUTDOWN_ORIGINS = {
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+}
 
 SUPPORTED_SYMBOLS = {"BTCUSDT", "ETHUSDT", "XAUUSD"}
 BINANCE_SYMBOLS   = {"BTCUSDT", "ETHUSDT"}
@@ -199,6 +209,43 @@ def shutdown_event():
         stop_gold_feed()
     except Exception:
         pass
+
+
+def _gracefully_stop_engine():
+    """Disconnect local integrations, then terminate this backend process.
+
+    This intentionally leaves existing MT5 positions untouched and never closes
+    the MT5 desktop terminal.  Orders retain their broker-side SL/TP protection.
+    """
+    import time as _time
+    _time.sleep(0.35)  # allow the HTTP 202 response to reach the dashboard
+    try:
+        from app.services.gold_realtime_service import stop_gold_feed
+        stop_gold_feed()
+    except Exception:
+        pass
+    try:
+        import MetaTrader5 as mt5
+        mt5.shutdown()
+    except Exception:
+        pass
+    os._exit(0)
+
+
+@app.post("/system/stop", status_code=202)
+def system_stop(request: Request):
+    """Gracefully stop the local SMT engine at the user's dashboard request."""
+    origin = request.headers.get("origin")
+    if origin not in _DASHBOARD_SHUTDOWN_ORIGINS:
+        raise HTTPException(status_code=403, detail="Local dashboard origin required")
+    if request.headers.get("x-smt-shutdown") != "confirm":
+        raise HTTPException(status_code=400, detail="Shutdown confirmation header required")
+
+    Thread(target=_gracefully_stop_engine, daemon=True, name="engine-shutdown").start()
+    return {
+        "status": "stopping",
+        "message": "SMT engine is stopping. MT5 and existing positions are unchanged.",
+    }
 
 
 def normalize_symbol(symbol):
