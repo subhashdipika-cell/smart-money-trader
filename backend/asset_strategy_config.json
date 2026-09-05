@@ -1,15 +1,9 @@
 {
   "BTC": [
-    "btc_momentum",
-    "custom_1781159562203_2",
-    "EMA20_Pullback"
+    "custom_1781159562203_2"
   ],
-  "ETH": [
-    "eth_momentum"
-  ],
+  "ETH": [],
   "Gold": [
-    "ATR_Trailing",
-    "h4_break_retest",
     "custom_1781159562198_1",
     "custom_1781159562213_4"
   ]
